@@ -19,13 +19,16 @@ class AuthorizationController:
         self.access_token_ttl_minutes = 60  # 1 hour
         self.refresh_token_ttl_minutes = 43200  # 30 days
 
-    def validate_access_token(self, token: str):
+    def validate_access_token(self, token: str) -> JSONResponse | bool:
         try:
-
             # Проверяем факт передачи токена
             if token is None:
-                reason = "Token is not provided"
-                return False, reason, status.HTTP_400_BAD_REQUEST
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "TOKEN_NOT_PROVIDED",
+                        "description": "Access-Token is not provided"
+                    })
 
             # При наличии токена приступаем к его декодированию
             try:
@@ -33,13 +36,21 @@ class AuthorizationController:
 
             # Обрабатываем кейс с некорректной подписью токена
             except InvalidSignatureError:
-                reason = "Token has incorrect signature"
-                return False, reason, status.HTTP_403_BAD_REQUEST
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "status": "TOKEN_BAD_SIGNATURE",
+                        "description": "Access-Token has incorrect signature"
+                    })
 
             # Обрабатываем кейс с общей ошибой декодирования
             except DecodeError:
-                reason = "Token malformed or has incorrect format"
-                return False, reason, status.HTTP_400_BAD_REQUEST
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "TOKEN_MALFORMED",
+                        "description": "Access-Token is malformed or has incorrect format"
+                    })
 
             # Запрашиваем данные по токену из БД
             token_data_from_db = AuthDBOps.get_token_data_by_id(
@@ -50,24 +61,40 @@ class AuthorizationController:
 
             # Проверяем, что по переданному идентификатору удалось найти запись о токене в БД
             if token_data_from_db is None:
-                reason = "Token is not found in database"
-                return False, reason, status.HTTP_401_UNAUTHORIZED
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "status": "TOKEN_NOT_FOUND",
+                        "description": "Access-Token data is not found in database"
+                    })
 
             # Проверяем токен на факт отзыва (посредством логаута или рефреша)
             if token_data_from_db[5] is True:
-                reason = "Token is revoked"
-                return False, reason, status.HTTP_401_UNAUTHORIZED
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "status": "TOKEN_REVOKED",
+                        "description": "Access-Token is revoked"
+                    })
 
             # Проверяем токен на истечение
             if self.is_token_expired(token):
-                reason = "Provided access_token is expired"
-                return False, reason, status.HTTP_403_FORBIDDEN
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "status": "TOKEN_EXPIRED",
+                        "description": "Provided Access-Token is expired"
+                    })
 
-            return True, 'all checks passed'
+            return True
 
         except Exception as e:
-            reason = f"Unhandled token processing exception.\n{e}"
-            return False, reason, status.HTTP_500_INTERNAL_SERVER_ERROR
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "INTERNAL_SERVER_ERROR",
+                    "description": f"Unhandled token processing exception. {e}"
+                })
 
     def generate_tokens(self, user_id: UUID):
 
@@ -183,3 +210,57 @@ class AuthorizationController:
                 "access_token": access_token,
                 "refresh_token": refresh_token
             })
+
+    def logout(self, access_token):
+
+        try:
+            decoded_token = jwt.decode(access_token, self.secret, algorithms="HS256")
+            access_token_id = decoded_token['id']
+
+            refresh_token_id = AuthDBOps.get_token_data_by_id(
+                cursor=self.cursor,
+                token_type='access',
+                token_id=access_token_id
+            )[4]
+
+            AuthDBOps.revoke_tokens(
+                connection=self.connection,
+                cursor=self.cursor,
+                token_type='access',
+                token_id=access_token_id
+            )
+
+            is_access_token_revoked = AuthDBOps.get_token_data_by_id(
+                cursor=self.cursor,
+                token_type='access',
+                token_id=access_token_id
+            )[5]
+
+            is_refresh_token_revoked = AuthDBOps.get_token_data_by_id(
+                cursor=self.cursor,
+                token_type='refresh',
+                token_id=refresh_token_id
+            )[5]
+
+            if is_access_token_revoked and is_refresh_token_revoked:
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "status": "Logout is completed"
+                    })
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "status": "INTERNAL_SERVER_ERROR",
+                        "description": f"Unknown token revoking exception. Access-Token revoked: "
+                                       f"{is_access_token_revoked}, Refresh-Token revoked: {is_refresh_token_revoked}."
+                    })
+
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "INTERNAL_SERVER_ERROR",
+                    "description": f"Unhandled token revoking exception. {e}"
+                })

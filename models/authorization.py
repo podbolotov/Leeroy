@@ -49,3 +49,8 @@ class AuthSuccessfulResponse(BaseModel):
             ]
         }
     }
+
+
+class LogoutSuccessfulResponse(BaseModel):
+    """ Статусный ответ, возвращаемый при успешной инвалидации пары токенов. """
+    status: str = "Logout is completed"

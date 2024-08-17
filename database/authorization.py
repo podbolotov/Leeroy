@@ -55,3 +55,41 @@ class AuthorizationDatabaseOperations:
         cursor.execute(get_token_data_query % str(token_id))
         token = cursor.fetchone()
         return token
+
+    @staticmethod
+    def revoke_tokens(
+            connection,
+            cursor,
+            token_type: str,
+            token_id: str
+    ):
+        try:
+            if token_type == 'access':
+
+                cursor.execute(
+                    '''
+                    UPDATE public.access_tokens SET revoked = true::boolean WHERE id = \'%s\';
+                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE access_token_id = \'%s\';
+                    ''' % (str(token_id), str(token_id))
+                )
+                connection.commit()
+
+            elif token_type == 'refresh':
+
+                cursor.execute(
+                    '''
+                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE id = \'%s\';
+                    UPDATE public.access_tokens SET revoked = true::boolean WHERE refresh_token_id = \'%s\';
+                    ''' % (str(token_id), str(token_id))
+                )
+                connection.commit()
+
+            else:
+                raise ValueError("Unsupported token type")
+
+            return True
+
+        except Exception as e:
+            connection.rollback()
+            raise RuntimeError(f'Tokens revoke request if failed!\n{e}')
+

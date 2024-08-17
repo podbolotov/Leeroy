@@ -13,7 +13,8 @@ from controllers.authorization import AuthorizationController
 from controllers.books import BooksController
 from controllers.users import UsersController
 from database.basic_operations import DatabaseBasicOperations
-from models.authorization import AuthRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse
+from models.authorization import (AuthRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse,
+                                  LogoutSuccessfulResponse)
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
 
 db_basic_ops = DatabaseBasicOperations()
@@ -37,13 +38,13 @@ async def authentification_check_middleware(request: Request, call_next):
         response = await call_next(request)
         return response
 
-    is_token_valid = authorization_controller.validate_access_token(token=access_token)
+    token_validation_results = authorization_controller.validate_access_token(token=access_token)
 
-    if is_token_valid[0]:
+    if token_validation_results is True:
         response = await call_next(request)
         return response
     else:
-        return JSONResponse(status_code=is_token_valid[2], content={"error": is_token_valid[1]})
+        return token_validation_results
 
 
 @app.post(
@@ -69,6 +70,27 @@ async def authorize(
         email=request_body.email,
         password=request_body.password
     )
+
+
+@app.delete(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    response_model=LogoutSuccessfulResponse,
+    response_description=LogoutSuccessfulResponse.__doc__,
+    # responses={401: {"model": AuthUnauthorizedError, "description": AuthUnauthorizedError.__doc__}},
+    tags=["Authorization"]
+)
+async def logout(
+        access_token: str = Header(description="Авторизационный токен")
+):
+    """
+    Данный эндпоинт выполняет инвалидацию пары из авторизационного токена и refresh-токена.
+
+    Требует передачи действительного Access-Token, который не истёк и не был ранее отозван.
+
+    В ответе возвращается статус операции.
+    """
+    return authorization_controller.logout(access_token)
 
 
 # Получение всех доступных книг
