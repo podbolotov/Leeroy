@@ -19,9 +19,12 @@ from models.books import BookNotFoundError, SingleBook, MultipleBooks
 
 db_basic_ops = DatabaseBasicOperations()
 db_connection, db_cursor = db_basic_ops.connect_to_database()
+
+
+app_description = open('README.md', 'r', encoding="utf-8")
 app = FastAPI(
     title="Leeroy",
-    description="Приложение-тренажёр для написания API-тестов, эмулирующее библиотечный каталог.",
+    description=app_description.read(),
     version="1.0.0"
 )
 
@@ -127,4 +130,4 @@ async def get_book_by_id(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

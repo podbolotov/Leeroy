@@ -9,15 +9,16 @@ from jwt import InvalidSignatureError, DecodeError
 from controllers.users import UsersController
 from database.authorization import AuthorizationDatabaseOperations as AuthDBOps
 from database.users import UsersDatabaseOperations as UsersDBOps
+from data.service_variables import ServiceVariables as SeVars
 
 
 class AuthorizationController:
     def __init__(self, connection, cursor):
         self.connection = connection
         self.cursor = cursor
-        self.secret = "JWT_SIGNATURE_SECRET"
-        self.access_token_ttl_minutes = 60  # 1 hour
-        self.refresh_token_ttl_minutes = 43200  # 30 days
+        self.secret = SeVars.JWT_SIGNATURE_SECRET
+        self.access_token_ttl_minutes = SeVars.ACCESS_TOKEN_TTL_IN_MINUTES
+        self.refresh_token_ttl_minutes = SeVars.REFRESH_TOKEN_TTL_IN_MINUTES
 
     def validate_access_token(self, token: str) -> JSONResponse | bool:
         try:

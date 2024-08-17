@@ -1,7 +1,6 @@
 import hashlib
 from database.users import UsersDatabaseOperations as UsersDBOps
-
-PASSWORD_HASH_SALT = "temporary_passwords_hash_salt"
+from data.service_variables import ServiceVariables as SeVars
 
 
 class UsersController:
@@ -11,7 +10,7 @@ class UsersController:
 
     @staticmethod
     def hash_password(password: str):
-        salt = PASSWORD_HASH_SALT
+        salt = SeVars.PASSWORD_HASH_SALT
 
         password_prepared_for_hashing = password + salt
         hashed_password = hashlib.md5(password_prepared_for_hashing.encode())

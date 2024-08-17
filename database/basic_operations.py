@@ -4,6 +4,7 @@ from data.users import DefaultAdministrator
 from database.books import BooksDatabaseOperations as BooksDBOps
 from database.users import UsersDatabaseOperations as UsersDBOps
 from controllers.users import UsersController
+from data.service_variables import ServiceVariables as SeVars
 
 
 class DatabaseBasicOperations:
@@ -16,10 +17,10 @@ class DatabaseBasicOperations:
     def __init__(self):
         self.connection = None
         self.cursor = None
-        self.user = 'postgres'
-        self.password = 'postgres'
-        self.host = '172.16.112.44'
-        self.port = '5432'
+        self.user = SeVars.DB_USER
+        self.password = SeVars.DB_PASSWORD
+        self.host = SeVars.DB_HOST
+        self.port = SeVars.DB_PORT
 
     def connect_to_database(self):
         # Первым шагом происходит подключение к стандартной базе данных "postgres". Это необходимо для проверки
@@ -52,12 +53,12 @@ class DatabaseBasicOperations:
             '''
             CREATE DATABASE leeroy
                 WITH
-                OWNER = postgres
+                OWNER = %s
                 ENCODING = 'UTF8'
                 LOCALE_PROVIDER = 'libc'
                 CONNECTION LIMIT = -1
                 IS_TEMPLATE = False;
-            '''
+            ''' % str(self.user)
         )
         self.cursor.execute(
             '''
@@ -86,8 +87,8 @@ class DatabaseBasicOperations:
             );
 
             ALTER TABLE IF EXISTS public.users
-                OWNER to postgres;
-            '''
+                OWNER to %s;
+            ''' % str(self.user)
         )
 
         hashed_default_user_password = UsersController.hash_password(DefaultAdministrator.password)
@@ -116,8 +117,8 @@ class DatabaseBasicOperations:
             );
             
             ALTER TABLE IF EXISTS public.access_tokens
-                OWNER to postgres;
-            '''
+                OWNER to %s;
+            ''' % str(self.user)
         )
         self.cursor.execute(
             '''
@@ -133,8 +134,8 @@ class DatabaseBasicOperations:
             );
 
             ALTER TABLE IF EXISTS public.refresh_tokens
-                OWNER to postgres;
-            '''
+                OWNER to %s;
+            ''' % str(self.user)
         )
         self.cursor.execute(
             '''
@@ -148,8 +149,8 @@ class DatabaseBasicOperations:
             );
 
             ALTER TABLE IF EXISTS public.books
-                OWNER to postgres;
-            '''
+                OWNER to %s;
+            ''' % str(self.user)
         )
         self.connection.autocommit = False
 
@@ -168,9 +169,3 @@ class DatabaseBasicOperations:
             author='Любанович Б.',
             isbn='978-601-08-3847-5'
         )
-
-# try:
-#
-# except Exception as e:
-#     # в случае сбоя подключения будет выведено сообщение в STDOUT
-#     print(f'Can`t establish connection to database!\nError: {e}')
