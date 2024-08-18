@@ -1,24 +1,25 @@
-import jwt
-import uuid
 import datetime
+import uuid
 from uuid import UUID
-from fastapi import FastAPI, Request, Response, status
+
+import jwt
 from fastapi.responses import JSONResponse
 from jwt import InvalidSignatureError, DecodeError
 
 from controllers.users import UsersController
+from data.service_variables import ServiceVariables as SeVars
 from database.authorization import AuthorizationDatabaseOperations as AuthDBOps
 from database.users import UsersDatabaseOperations as UsersDBOps
-from data.service_variables import ServiceVariables as SeVars
+from models.authorization import AuthSuccessfulResponse
 
 
 class AuthorizationController:
     def __init__(self, connection, cursor):
         self.connection = connection
         self.cursor = cursor
-        self.secret = SeVars.JWT_SIGNATURE_SECRET
-        self.access_token_ttl_minutes = SeVars.ACCESS_TOKEN_TTL_IN_MINUTES
-        self.refresh_token_ttl_minutes = SeVars.REFRESH_TOKEN_TTL_IN_MINUTES
+        self.secret = str(SeVars.JWT_SIGNATURE_SECRET)
+        self.access_token_ttl_minutes = int(SeVars.ACCESS_TOKEN_TTL_IN_MINUTES)
+        self.refresh_token_ttl_minutes = int(SeVars.REFRESH_TOKEN_TTL_IN_MINUTES)
 
     def validate_access_token(self, token: str) -> JSONResponse | bool:
         try:
@@ -44,13 +45,22 @@ class AuthorizationController:
                         "description": "Access-Token has incorrect signature"
                     })
 
-            # Обрабатываем кейс с общей ошибой декодирования
+            # Обрабатываем кейс с общей ошибкой декодирования
             except DecodeError:
                 return JSONResponse(
                     status_code=400,
                     content={
                         "status": "TOKEN_MALFORMED",
                         "description": "Access-Token is malformed or has incorrect format"
+                    })
+
+            # Проверяем токен на истечение
+            if self.is_token_expired(token):
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "status": "TOKEN_EXPIRED",
+                        "description": "Provided Access-Token is expired"
                     })
 
             # Запрашиваем данные по токену из БД
@@ -76,15 +86,6 @@ class AuthorizationController:
                     content={
                         "status": "TOKEN_REVOKED",
                         "description": "Access-Token is revoked"
-                    })
-
-            # Проверяем токен на истечение
-            if self.is_token_expired(token):
-                return JSONResponse(
-                    status_code=401,
-                    content={
-                        "status": "TOKEN_EXPIRED",
-                        "description": "Provided Access-Token is expired"
                     })
 
             return True
@@ -207,10 +208,136 @@ class AuthorizationController:
         access_token, refresh_token = self.generate_tokens(user_id=user_data[0])
         return JSONResponse(
             status_code=200,
-            content={
-                "access_token": access_token,
-                "refresh_token": refresh_token
-            })
+            content=AuthSuccessfulResponse(access_token=access_token, refresh_token=refresh_token).model_dump()
+        )  # эксперементальный способ возвращения данных при помощи модели
+
+        # return JSONResponse(
+        #     status_code=200,
+        #     content={
+        #         "access_token": access_token,
+        #         "refresh_token": refresh_token
+        #     })
+
+    def refresh_tokens(self, refresh_token):
+
+        # Начинаем декодирование переданного токена
+        try:
+            decoded_token = jwt.decode(refresh_token, self.secret, algorithms="HS256")
+
+        # Возвращаем ошибку, если подпись токена некорректна.
+        except InvalidSignatureError:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "status": "TOKEN_BAD_SIGNATURE",
+                    "description": "Refresh-Token has incorrect signature"
+                })
+
+        # Возвращаем ошибку для всех остальных ошибок декодирования.
+        except DecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "TOKEN_MALFORMED",
+                    "description": "Refresh-Token is malformed or has incorrect format"
+                })
+
+        # Возвращаем ошибку в случае, если токен истёк.
+        if self.is_token_expired(refresh_token):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "status": "TOKEN_EXPIRED",
+                    "description": "Provided Refresh-Token is expired"
+                })
+
+        # Если автономные (без запроса данных из БД) проверки прошли успешно - запрашиваем данные по
+        # переданному токену из БД, далее проверяем полученные данные.
+        refresh_token_data_from_db = AuthDBOps.get_token_data_by_id(
+            cursor=self.cursor,
+            token_type='refresh',
+            token_id=decoded_token['id']
+        )
+
+        # Если данные по ID токена найти не удалось, то возвращаем соответствуюшую ошибку.
+        if refresh_token_data_from_db is None:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "status": "TOKEN_NOT_FOUND",
+                    "description": "Refresh-Token data is not found in database"
+                })
+
+        # Если данные по токену были найдены, но токен уже значится отозванным - возвращаем ошибку.
+        if refresh_token_data_from_db[5] is True:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "status": "TOKEN_REVOKED",
+                    "description": "Refresh-Token is revoked"
+                })
+
+        access_token_id = refresh_token_data_from_db[4]  # сохраняем ID access-токена для дальнейшей проверки его отзыва
+        refresh_token_id = decoded_token['id']    # сохраняем ID access-токена для его отзыва и дальнейшей проверки
+        # его отзыва
+        user_id = decoded_token['user_id']  # сохраняем полученный из декодированного токена user_id для его
+        # прикрепления к новой паре авторизационных токенов
+
+        # Если  валидация рефреш-токена пройдена успешно, то запускаем
+        # процесс отзыва переданной пары токенов и выпуска новой пары.
+        try:
+            # Запускаем процедуру отзыва токенов
+            AuthDBOps.revoke_tokens(
+                connection=self.connection,
+                cursor=self.cursor,
+                token_type='refresh',
+                token_id=refresh_token_id
+            )
+
+            # После завершения работы процедуры отзыва токенов - сохраняем новый статус переданного рефреш-токена.
+            is_refresh_token_revoked = AuthDBOps.get_token_data_by_id(
+                cursor=self.cursor,
+                token_type='refresh',
+                token_id=refresh_token_id
+            )[5]
+
+            # Также сохраняем новый статус access-токена, который связан с переданным рефреш-токеном и также должен
+            # быть отозван.
+            is_access_token_revoked = AuthDBOps.get_token_data_by_id(
+                cursor=self.cursor,
+                token_type='access',
+                token_id=access_token_id
+            )[5]
+
+            # В случае, если оба токена были успешно отозваны - запускаем генерацию новой пары токенов и возвращаем
+            # её пользователю.
+            if is_refresh_token_revoked and is_access_token_revoked:
+
+                access_token, refresh_token = self.generate_tokens(user_id=user_id)
+                return JSONResponse(
+                    status_code=200,
+                    content=AuthSuccessfulResponse(access_token=access_token, refresh_token=refresh_token).model_dump()
+                )
+
+            # Если один токенов обновляемой пары не был отозван - сообщаем о ошибке.
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "status": "INTERNAL_SERVER_ERROR",
+                        "description": f"Unknown token refreshing exception. Access-Token revoked: "
+                                       f"{is_access_token_revoked}, Refresh-Token revoked: {is_refresh_token_revoked}."
+                    })
+
+        # Выбрасываем общую ошибку в случае, если при процедуре отзыва токенов или при генерации новой пары возникло
+        # необработанное исключение.
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "INTERNAL_SERVER_ERROR",
+                    "description": f"Unhandled token refreshing exception. {e}"
+                })
 
     def logout(self, access_token):
 

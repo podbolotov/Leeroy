@@ -6,14 +6,12 @@ from uuid import UUID
 
 import uvicorn
 from fastapi import FastAPI, Request, status, Header, Body, Path
-from fastapi.responses import JSONResponse
 
-import models.authorization
 from controllers.authorization import AuthorizationController
 from controllers.books import BooksController
 from controllers.users import UsersController
 from database.basic_operations import DatabaseBasicOperations
-from models.authorization import (AuthRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse,
+from models.authorization import (AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse,
                                   LogoutSuccessfulResponse)
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
 
@@ -37,7 +35,7 @@ users_controller = UsersController(connection=db_connection, cursor=db_cursor)
 async def authentification_check_middleware(request: Request, call_next):
     access_token = request.headers.get('Access-Token')
 
-    if request.url.path in ['/authorize', '/docs', '/favicon.ico', '/openapi.json', '/redoc']:
+    if request.url.path in ['/authorize', '/refresh', '/docs', '/favicon.ico', '/openapi.json', '/redoc']:
         response = await call_next(request)
         return response
 
@@ -72,6 +70,30 @@ async def authorize(
     return authorization_controller.authorize_user_by_email_and_password(
         email=request_body.email,
         password=request_body.password
+    )
+
+
+@app.post(
+    "/refresh",
+    status_code=status.HTTP_200_OK,
+    response_model=AuthSuccessfulResponse,
+    response_description=AuthSuccessfulResponse.__doc__,
+    # responses={401: {"model": AuthUnauthorizedError, "description": AuthUnauthorizedError.__doc__}},
+    tags=["Authorization"]
+)
+async def refresh(
+        request_body: RefreshRequestBody = Body()
+):
+    """
+    Данный эндпоинт выпускает новую пару авторизационного токена и рефреш-токена при передаче корректного рефреш-токена.
+
+    Не находится в авторизованной зоне.
+
+    В ответе возвращает JWT-токены, которые используются для авторизации и аутентификации пользователя на всех
+    эндпоинтах, находящихся в авторизованной зоне.
+    """
+    return authorization_controller.refresh_tokens(
+        refresh_token=request_body.refresh_token
     )
 
 

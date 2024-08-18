@@ -19,6 +19,25 @@ class AuthRequestBody(BaseModel):
     }
 
 
+class RefreshRequestBody(BaseModel):
+    """ Тело запроса на обновление токенов. """
+    refresh_token: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImZmMjk1OTA4LTYwNzQtNDAzYy1hOTlhLWQx"
+                                     "ZDM2NDAwZjgzNSIsInVzZXJfaWQiOiI0Y2E3YWE1MC02MDBmLTQ4MjgtOWZiNy00NDVmMDJjMWE0MmQiL"
+                                     "CJpc3N1ZWRfYXQiOiIyMDI0LTA4LTE1VDE2OjA3OjQ1LjE4NDgzOCswMDowMCIsImV4cGlyZWRfYXQiOi"
+                                     "IyMDI0LTA5LTE0VDE2OjA3OjQ1LjE4NDgzOCswMDowMCJ9.DMcQZWd7beS1uoquSCyu_S975kL86LqXPA"
+                                     "mSKO58iUs"
+                }
+            ]
+        }
+    }
+
+
 class AuthUnauthorizedError(DefaultError):
     """ Универсальный ответ, возвращаемый в случае невозможности найти пользователя или в случае, если передан
     некорректный пароль. """
@@ -27,7 +46,7 @@ class AuthUnauthorizedError(DefaultError):
 
 
 class AuthSuccessfulResponse(BaseModel):
-    """ В случае успешной авторизации возвращается пара из токена доступа и рефреш-токена. """
+    """ В случае успешной авторизации или обновления токенов, возвращается пара из токена доступа и рефреш-токена. """
     access_token: str
     refresh_token: str
 
