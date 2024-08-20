@@ -11,13 +11,14 @@ from controllers.authorization import AuthorizationController
 from controllers.books import BooksController
 from controllers.users import UsersController
 from database.basic_operations import DatabaseBasicOperations
-from models.authorization import (AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse,
-                                  LogoutSuccessfulResponse)
+from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse, \
+                                  LogoutSuccessfulResponse
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
+from models.users import CreateUserRequestBody, CreateUserForbiddenError, CreateUserEmailIsNotAvailableError, \
+    CreateUserSuccessfulResponse
 
 db_basic_ops = DatabaseBasicOperations()
 db_connection, db_cursor = db_basic_ops.connect_to_database()
-
 
 app_description = open('README.md', 'r', encoding="utf-8")
 app = FastAPI(
@@ -94,6 +95,52 @@ async def refresh(
     """
     return authorization_controller.refresh_tokens(
         refresh_token=request_body.refresh_token
+    )
+
+
+@app.post(
+    "/users",
+    status_code=status.HTTP_200_OK,
+    response_model=CreateUserSuccessfulResponse,
+    response_description=CreateUserSuccessfulResponse.__doc__,
+    responses={
+        400: {
+            "model": CreateUserEmailIsNotAvailableError,
+            "description": CreateUserEmailIsNotAvailableError.__doc__
+        },
+        403: {
+            "model": CreateUserForbiddenError,
+            "description": CreateUserForbiddenError.__doc__
+        },
+    },
+    tags=["Users"]
+)
+async def create_user(
+        access_token: str = Header(description="Авторизационный токен администратора"),
+        request_body: CreateUserRequestBody = Body()
+):
+    """
+    Данный эндпоинт регистрирует нового пользователя по переданным данным.
+
+    Среди переданных данных должны быть:
+    - Валидный адрес электронной почты, не использующийся ни одним из существующих пользователей.
+    - Имя
+    - Отчество / среднее имя (опционально)
+    - Фамилия
+    - Пароль
+
+    Запрос находится в авторизованной зоне и требует передачи Access-Token'а пользователя, наделённого правами
+    администратора.
+
+    При успешной регистрации в ответе возвращается статусное сообщение и ID зарегистрированного пользователя.
+    """
+    return users_controller.create_user(
+        requester_decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        email=request_body.email,
+        firstname=request_body.firstname,
+        middlename=request_body.middlename,
+        surname=request_body.surname,
+        password=request_body.password
     )
 
 

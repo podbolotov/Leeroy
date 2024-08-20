@@ -83,7 +83,8 @@ class DatabaseBasicOperations:
                 email text NOT NULL,
                 hashed_password text NOT NULL,
                 is_admin boolean NOT NULL DEFAULT false,
-                PRIMARY KEY (id)
+                PRIMARY KEY (id),
+                UNIQUE (email)
             );
 
             ALTER TABLE IF EXISTS public.users

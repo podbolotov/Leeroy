@@ -4,6 +4,7 @@ from uuid import UUID
 
 import jwt
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from jwt import InvalidSignatureError, DecodeError
 
 from controllers.users import UsersController
@@ -11,6 +12,10 @@ from data.service_variables import ServiceVariables as SeVars
 from database.authorization import AuthorizationDatabaseOperations as AuthDBOps
 from database.users import UsersDatabaseOperations as UsersDBOps
 from models.authorization import AuthSuccessfulResponse
+from models.jwt_tokens import DecodedJsonWebToken, ValidationErrorTokenNotProvided, ValidationErrorTokenBadSignature, \
+    ValidationErrorTokenMalformed, ValidationErrorTokenExpired, ValidationErrorTokenNotFoundInDatabase, \
+    ValidationErrorTokenRevoked
+from models.default_error import DefaultError
 
 
 class AuthorizationController:
@@ -21,16 +26,25 @@ class AuthorizationController:
         self.access_token_ttl_minutes = int(SeVars.ACCESS_TOKEN_TTL_IN_MINUTES)
         self.refresh_token_ttl_minutes = int(SeVars.REFRESH_TOKEN_TTL_IN_MINUTES)
 
+    @staticmethod
+    def decode_token_without_validation(token) -> DecodedJsonWebToken:
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+        return DecodedJsonWebToken(
+            id=decoded_token['id'],
+            user_id=decoded_token['user_id'],
+            issued_at=decoded_token['issued_at'],
+            expired_at=decoded_token['expired_at']
+        )
+
     def validate_access_token(self, token: str) -> JSONResponse | bool:
         try:
             # Проверяем факт передачи токена
             if token is None:
                 return JSONResponse(
                     status_code=400,
-                    content={
-                        "status": "TOKEN_NOT_PROVIDED",
-                        "description": "Access-Token is not provided"
-                    })
+                    content=jsonable_encoder(
+                        ValidationErrorTokenNotProvided()
+                    ))
 
             # При наличии токена приступаем к его декодированию
             try:
@@ -40,28 +54,19 @@ class AuthorizationController:
             except InvalidSignatureError:
                 return JSONResponse(
                     status_code=401,
-                    content={
-                        "status": "TOKEN_BAD_SIGNATURE",
-                        "description": "Access-Token has incorrect signature"
-                    })
+                    content=jsonable_encoder(ValidationErrorTokenBadSignature()))
 
             # Обрабатываем кейс с общей ошибкой декодирования
             except DecodeError:
                 return JSONResponse(
                     status_code=400,
-                    content={
-                        "status": "TOKEN_MALFORMED",
-                        "description": "Access-Token is malformed or has incorrect format"
-                    })
+                    content=jsonable_encoder(ValidationErrorTokenMalformed()))
 
             # Проверяем токен на истечение
             if self.is_token_expired(token):
                 return JSONResponse(
                     status_code=401,
-                    content={
-                        "status": "TOKEN_EXPIRED",
-                        "description": "Provided Access-Token is expired"
-                    })
+                    content=jsonable_encoder(ValidationErrorTokenExpired()))
 
             # Запрашиваем данные по токену из БД
             token_data_from_db = AuthDBOps.get_token_data_by_id(
@@ -74,29 +79,25 @@ class AuthorizationController:
             if token_data_from_db is None:
                 return JSONResponse(
                     status_code=401,
-                    content={
-                        "status": "TOKEN_NOT_FOUND",
-                        "description": "Access-Token data is not found in database"
-                    })
+                    content=jsonable_encoder(ValidationErrorTokenNotFoundInDatabase()))
 
             # Проверяем токен на факт отзыва (посредством логаута или рефреша)
             if token_data_from_db[5] is True:
                 return JSONResponse(
                     status_code=401,
-                    content={
-                        "status": "TOKEN_REVOKED",
-                        "description": "Access-Token is revoked"
-                    })
+                    content=jsonable_encoder(ValidationErrorTokenRevoked()))
 
             return True
 
         except Exception as e:
             return JSONResponse(
                 status_code=500,
-                content={
-                    "status": "INTERNAL_SERVER_ERROR",
-                    "description": f"Unhandled token processing exception. {e}"
-                })
+                content=jsonable_encoder(
+                    DefaultError(
+                        status="INTERNAL_SERVER_ERROR",
+                        description=f"Unhandled token processing exception. {e}"
+                    )
+                ))
 
     def generate_tokens(self, user_id: UUID):
 
@@ -278,7 +279,7 @@ class AuthorizationController:
                 })
 
         access_token_id = refresh_token_data_from_db[4]  # сохраняем ID access-токена для дальнейшей проверки его отзыва
-        refresh_token_id = decoded_token['id']    # сохраняем ID access-токена для его отзыва и дальнейшей проверки
+        refresh_token_id = decoded_token['id']  # сохраняем ID access-токена для его отзыва и дальнейшей проверки
         # его отзыва
         user_id = decoded_token['user_id']  # сохраняем полученный из декодированного токена user_id для его
         # прикрепления к новой паре авторизационных токенов
