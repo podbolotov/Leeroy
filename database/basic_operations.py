@@ -17,10 +17,10 @@ class DatabaseBasicOperations:
     def __init__(self):
         self.connection = None
         self.cursor = None
-        self.user = SeVars.DB_USER
-        self.password = SeVars.DB_PASSWORD
-        self.host = SeVars.DB_HOST
-        self.port = SeVars.DB_PORT
+        self.user = str(SeVars.DB_USER)
+        self.password = str(SeVars.DB_PASSWORD)
+        self.host = str(SeVars.DB_HOST)
+        self.port = str(SeVars.DB_PORT)
 
     def connect_to_database(self):
         # Первым шагом происходит подключение к стандартной базе данных "postgres". Это необходимо для проверки

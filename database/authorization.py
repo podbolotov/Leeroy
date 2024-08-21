@@ -46,13 +46,13 @@ class AuthorizationDatabaseOperations:
             token_id: str
     ):
         if token_type == 'access':
-            get_token_data_query = 'SELECT * from public.access_tokens WHERE id = \'%s\';'
+            get_token_data_query = 'SELECT * from public.access_tokens WHERE id = %s;'
         elif token_type == 'refresh':
-            get_token_data_query = 'SELECT * from public.refresh_tokens WHERE id = \'%s\';'
+            get_token_data_query = 'SELECT * from public.refresh_tokens WHERE id = %s;'
         else:
             raise ValueError("Unsupported token type")
 
-        cursor.execute(get_token_data_query % str(token_id))
+        cursor.execute(get_token_data_query, (str(token_id),))
         token = cursor.fetchone()
         return token
 
@@ -68,9 +68,9 @@ class AuthorizationDatabaseOperations:
 
                 cursor.execute(
                     '''
-                    UPDATE public.access_tokens SET revoked = true::boolean WHERE id = \'%s\';
-                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE access_token_id = \'%s\';
-                    ''' % (str(token_id), str(token_id))
+                    UPDATE public.access_tokens SET revoked = true::boolean WHERE id = %s;
+                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE access_token_id = %s;
+                    ''', (str(token_id), str(token_id))
                 )
                 connection.commit()
 
@@ -78,9 +78,9 @@ class AuthorizationDatabaseOperations:
 
                 cursor.execute(
                     '''
-                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE id = \'%s\';
-                    UPDATE public.access_tokens SET revoked = true::boolean WHERE refresh_token_id = \'%s\';
-                    ''' % (str(token_id), str(token_id))
+                    UPDATE public.refresh_tokens SET revoked = true::boolean WHERE id = %s;
+                    UPDATE public.access_tokens SET revoked = true::boolean WHERE refresh_token_id = %s;
+                    ''', (str(token_id), str(token_id))
                 )
                 connection.commit()
 

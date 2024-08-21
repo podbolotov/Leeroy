@@ -1,11 +1,17 @@
 from typing import Optional
+from typing_extensions import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from models.default_error import DefaultError
 
 
 class UserDataModel(BaseModel):
+    """
+    Модель для получения данных по пользователю из БД.
+
+    Временно не используется.
+    """
     id: UUID
     """ UUIDv4-идентификатор пользователя"""
     firstname: str
@@ -25,13 +31,13 @@ class UserDataModel(BaseModel):
 class CreateUserRequestBody(BaseModel):
     email: EmailStr
     """ Желаемый адрес электронной почты создаваемого пользователя """
-    firstname: str
-    """ Имя создаваемого пользователя"""
-    middlename: Optional[str | None] = None
-    """ Отчество создаваемого пользователя (опционально)"""
-    surname: str
+    firstname: str = Field(min_length=1, max_length=99)  # , pattern=r"[A-Z]\d{9}"
+    """ Имя создаваемого пользователя """
+    middlename: Optional[Annotated[str, Field(min_length=1, max_length=99)]] = None
+    """ Отчество создаваемого пользователя (опционально) """
+    surname: str = Field(min_length=1, max_length=99)
     """ Фамилия создаваемого пользователя """
-    password: str
+    password: str = Field(min_length=8, max_length=99)
     """ Желаемый пароль создаваемого пользователя """
 
     model_config = {

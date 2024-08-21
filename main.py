@@ -16,6 +16,7 @@ from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauth
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
 from models.users import CreateUserRequestBody, CreateUserForbiddenError, CreateUserEmailIsNotAvailableError, \
     CreateUserSuccessfulResponse
+from data.available_without_auth import pathes as available_without_auth_pathes
 
 db_basic_ops = DatabaseBasicOperations()
 db_connection, db_cursor = db_basic_ops.connect_to_database()
@@ -36,7 +37,7 @@ users_controller = UsersController(connection=db_connection, cursor=db_cursor)
 async def authentification_check_middleware(request: Request, call_next):
     access_token = request.headers.get('Access-Token')
 
-    if request.url.path in ['/authorize', '/refresh', '/docs', '/favicon.ico', '/openapi.json', '/redoc']:
+    if request.url.path in available_without_auth_pathes:
         response = await call_next(request)
         return response
 

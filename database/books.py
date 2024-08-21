@@ -8,7 +8,7 @@ class BooksDatabaseOperations:
 
     @staticmethod
     def add_book(connection, cursor, title, author, isbn):
-        insert_book_query = """ INSERT INTO public.books (id, title, author, isbn) VALUES (%s,%s,%s,%s)"""
+        insert_book_query = """ INSERT INTO public.books (id, title, author, isbn) VALUES (%s,%s,%s,%s) """
         book_id = str(uuid.uuid4())
         book_bundle = (book_id, title, author, isbn)
         cursor.execute(insert_book_query, book_bundle)
@@ -24,7 +24,7 @@ class BooksDatabaseOperations:
     @staticmethod
     def get_book_by_id(connection, cursor, book_id: uuid.UUID):
         try:
-            cursor.execute('SELECT * from public.books WHERE id = \'%s\';' % str(book_id))
+            cursor.execute('SELECT * from public.books WHERE id = %s;', (str(book_id),))
             book = cursor.fetchone()
             return book
         except Exception as e:

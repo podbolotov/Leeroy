@@ -47,9 +47,9 @@ class UsersDatabaseOperations:
     ):
         try:
             if find_by == 'email' and user_email is not None:
-                cursor.execute('SELECT * from public.users WHERE email = \'%s\';' % str(user_email))
+                cursor.execute('SELECT * from public.users WHERE email = %s;', (str(user_email),))
             elif find_by == 'id' and user_id is not None:
-                cursor.execute('SELECT * from public.users WHERE id = \'%s\';' % str(user_id))
+                cursor.execute('SELECT * from public.users WHERE id = %s;', (str(user_id),))
             else:
                 raise ValueError("Unsupported find_by type or missed search query")
 
