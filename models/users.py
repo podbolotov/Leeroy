@@ -31,7 +31,7 @@ class UserDataModel(BaseModel):
 class CreateUserRequestBody(BaseModel):
     email: EmailStr
     """ Желаемый адрес электронной почты создаваемого пользователя """
-    firstname: str = Field(min_length=1, max_length=99)  # , pattern=r"[A-Z]\d{9}"
+    firstname: str = Field(min_length=1, max_length=99)
     """ Имя создаваемого пользователя """
     middlename: Optional[Annotated[str, Field(min_length=1, max_length=99)]] = None
     """ Отчество создаваемого пользователя (опционально) """
@@ -62,6 +62,30 @@ class CreateUserForbiddenError(DefaultError):
     description: str = "Only administrators can create new users"
 
 
+class GetUserDataForbiddenError(DefaultError):
+    """ Данная ошибка возвращается в случае, пользователь пытается запросить информацию по другому пользоваетелю,
+    не имея прав администратора. """
+    status: str = "FORBIDDEN"
+    description: str = "Only administrators can find information about another users"
+
+
+class GetUserDataNotFoundError(DefaultError):
+    """ Данная ошибка возвращается в случае, если найти пользователя по переданному идентификатору не удалось. """
+    status: str = "NOT_FOUND"
+    description: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "NOT_FOUND",
+                    "description": "User with id a8914642-9f8d-4e3a-b2da-82f5af6ae073 is not found."
+                }
+            ]
+        }
+    }
+
+
 class CreateUserEmailIsNotAvailableError(DefaultError):
     """ Данная ошибка возвращается в случае, если переданный при попытке регистрации адрес электронной почты
     недоступен для регистрации (например, если он уже используется одним из зарегистрированных пользователей)."""
@@ -80,6 +104,27 @@ class CreateUserSuccessfulResponse(BaseModel):
                 {
                     "status": "User successfully created",
                     "user_id": "8795a12c-5ed7-452a-b9e9-02da8aaa9f37"
+                }
+            ]
+        }
+    }
+
+
+class GetUserDataSuccessfulResponse(CreateUserRequestBody):
+    """ В случае успешного поиска данных по пользователю, в ответе возвращаются данные пользователя. """
+    password: Annotated[str, Field(exclude=True)] = None
+    is_admin: bool
+    id: UUID
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "id": "8795a12c-5ed7-452a-b9e9-02da8aaa9f37",
+                    "email": "example@contoso.com",
+                    "firstname": "Leeroy",
+                    "middlename": "Pals for Life",
+                    "surname": "Jenkins",
+                    "is_admin": True
                 }
             ]
         }

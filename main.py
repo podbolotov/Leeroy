@@ -12,10 +12,11 @@ from controllers.books import BooksController
 from controllers.users import UsersController
 from database.basic_operations import DatabaseBasicOperations
 from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse, \
-                                  LogoutSuccessfulResponse
+    LogoutSuccessfulResponse
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
-from models.users import CreateUserRequestBody, CreateUserForbiddenError, CreateUserEmailIsNotAvailableError, \
-    CreateUserSuccessfulResponse
+from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUserDataForbiddenError, \
+    CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, \
+    GetUserDataSuccessfulResponse, GetUserDataNotFoundError
 from data.available_without_auth import pathes as available_without_auth_pathes
 
 db_basic_ops = DatabaseBasicOperations()
@@ -99,6 +100,27 @@ async def refresh(
     )
 
 
+@app.delete(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    response_model=LogoutSuccessfulResponse,
+    response_description=LogoutSuccessfulResponse.__doc__,
+    # responses={401: {"model": AuthUnauthorizedError, "description": AuthUnauthorizedError.__doc__}},
+    tags=["Authorization"]
+)
+async def logout(
+        access_token: str = Header(description="Авторизационный токен")
+):
+    """
+    Данный эндпоинт выполняет инвалидацию пары из авторизационного токена и refresh-токена.
+
+    Требует передачи действительного Access-Token, который не истёк и не был ранее отозван.
+
+    В ответе возвращается статус операции.
+    """
+    return authorization_controller.logout(access_token)
+
+
 @app.post(
     "/users",
     status_code=status.HTTP_200_OK,
@@ -145,28 +167,60 @@ async def create_user(
     )
 
 
-@app.delete(
-    "/logout",
+@app.get(
+    path="/users/me",
     status_code=status.HTTP_200_OK,
-    response_model=LogoutSuccessfulResponse,
-    response_description=LogoutSuccessfulResponse.__doc__,
-    # responses={401: {"model": AuthUnauthorizedError, "description": AuthUnauthorizedError.__doc__}},
-    tags=["Authorization"]
+    response_model=GetUserDataSuccessfulResponse,
+    response_description=GetUserDataSuccessfulResponse.__doc__,
+    tags=["Users"]
 )
-async def logout(
+async def get_user_data_by_access_token(
         access_token: str = Header(description="Авторизационный токен")
 ):
     """
-    Данный эндпоинт выполняет инвалидацию пары из авторизационного токена и refresh-токена.
-
-    Требует передачи действительного Access-Token, который не истёк и не был ранее отозван.
-
-    В ответе возвращается статус операции.
+    Данный эндпоинт возвращает информацию по пользователю, идетнифицируя его по переданному Access-Token'у.
     """
-    return authorization_controller.logout(access_token)
+    return users_controller.get_user_data(
+        decoded_access_token=authorization_controller.decode_token_without_validation(access_token)
+    )
 
 
-# Получение всех доступных книг
+@app.get(
+    path="/users/{user_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=GetUserDataSuccessfulResponse,
+    response_description=GetUserDataSuccessfulResponse.__doc__,
+    responses={
+        403: {
+            "model": GetUserDataForbiddenError,
+            "description": GetUserDataForbiddenError.__doc__
+        },
+        404: {
+            "model": GetUserDataNotFoundError,
+            "description": GetUserDataNotFoundError.__doc__
+        },
+    },
+    tags=["Users"]
+)
+async def get_user_data_by_user_id(
+        access_token: str = Header(description="Авторизационный токен"),
+        user_id: UUID = Path(description="ID пользователя, данные по которому требуется найти"),
+):
+    """
+    Данный эндпоинт возвращает информацию по пользователю.
+
+    Если пользователь передаст в качестве user_id собственный идентификатор - то он получит информацию о себе аналогично
+    запросу GET /users/me.
+
+    Если пользователь передаст идентификатор другого пользователя - то данные другого пользователя будут возвращены
+    ему только в случае, если он является администратором.
+    """
+    return users_controller.get_user_data(
+        decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        user_id=user_id
+    )
+
+
 @app.get(
     path="/books",
     status_code=status.HTTP_200_OK,
