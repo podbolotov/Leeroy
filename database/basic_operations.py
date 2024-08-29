@@ -114,7 +114,11 @@ class DatabaseBasicOperations:
                 expired_at timestamp with time zone NOT NULL,
                 refresh_token_id uuid NOT NULL,
                 revoked boolean NOT NULL DEFAULT false,
-                PRIMARY KEY (id)
+                PRIMARY KEY (id),
+                CONSTRAINT fk_user
+                    FOREIGN KEY(user_id) 
+                        REFERENCES public.users(id)
+                        ON DELETE CASCADE
             );
             
             ALTER TABLE IF EXISTS public.access_tokens
@@ -131,7 +135,11 @@ class DatabaseBasicOperations:
                 expired_at timestamp with time zone NOT NULL,
                 access_token_id uuid NOT NULL,
                 revoked boolean NOT NULL DEFAULT false,
-                PRIMARY KEY (id)
+                PRIMARY KEY (id),
+                CONSTRAINT fk_user
+                    FOREIGN KEY(user_id) 
+                        REFERENCES public.users(id)
+                        ON DELETE CASCADE
             );
 
             ALTER TABLE IF EXISTS public.refresh_tokens
