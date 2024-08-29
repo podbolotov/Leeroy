@@ -1,4 +1,5 @@
 import uuid
+from uuid import UUID
 
 
 class UsersDatabaseOperations:
@@ -61,3 +62,18 @@ class UsersDatabaseOperations:
             connection.rollback()
             raise RuntimeError(f'Database request if failed!\n{e}')
 
+    @staticmethod
+    def delete_user_and_delete_all_users_tokens_by_user_id(
+            connection,
+            cursor,
+            user_id: UUID
+    ):
+        try:
+            cursor.execute('DELETE from public.users WHERE id = %s;', (str(user_id),))
+            cursor.execute('DELETE from public.access_tokens WHERE user_id = %s;', (str(user_id),))
+            cursor.execute('DELETE from public.refresh_tokens WHERE user_id = %s;', (str(user_id),))
+            connection.commit()
+            return
+        except Exception as e:
+            connection.rollback()
+            raise RuntimeError(f'Database request if failed!\n{e}')

@@ -1,4 +1,5 @@
-from typing import Optional
+from enum import Enum
+from typing import Optional, Literal
 from typing_extensions import Annotated
 from uuid import UUID
 
@@ -69,6 +70,33 @@ class GetUserDataForbiddenError(DefaultError):
     description: str = "Only administrators can find information about another users"
 
 
+class DeleteUserForbiddenReason(str, Enum):
+    user_is_not_admin = "Only administrators can delete users"
+    admin_can_not_be_deleted = "Administrator can not be deleted"
+
+
+class DeleteUserForbiddenError(DefaultError):
+    """ Данная ошибка возвращается в случае, если запрос на удаление отправлен от имени пользователя, не имеющего прав
+    администратора, либо в случае, если он отправлен в отношении пользователя, являющегося администратором. """
+    status: Literal["FORBIDDEN"] = "FORBIDDEN"
+    description: DeleteUserForbiddenReason
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "FORBIDDEN",
+                    "description": "Only administrators can delete users"
+                },
+                {
+                    "status": "FORBIDDEN",
+                    "description": "Administrator can not be deleted"
+                }
+            ]
+        }
+    }
+
+
 class GetUserDataNotFoundError(DefaultError):
     """ Данная ошибка возвращается в случае, если найти пользователя по переданному идентификатору не удалось. """
     status: str = "NOT_FOUND"
@@ -104,6 +132,21 @@ class CreateUserSuccessfulResponse(BaseModel):
                 {
                     "status": "User successfully created",
                     "user_id": "8795a12c-5ed7-452a-b9e9-02da8aaa9f37"
+                }
+            ]
+        }
+    }
+
+
+class DeleteUserSuccessfulResponse(BaseModel):
+    """ В случае успешного удаления пользователя возвращается статусное сообщение. """
+    status: str = "User successfully deleted"
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "User successfully deleted"
                 }
             ]
         }

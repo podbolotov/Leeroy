@@ -15,8 +15,8 @@ from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauth
     LogoutSuccessfulResponse
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
 from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUserDataForbiddenError, \
-    CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, \
-    GetUserDataSuccessfulResponse, GetUserDataNotFoundError
+    CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, DeleteUserSuccessfulResponse, \
+    GetUserDataSuccessfulResponse, GetUserDataNotFoundError, DeleteUserForbiddenError
 from data.available_without_auth import pathes as available_without_auth_pathes
 
 db_basic_ops = DatabaseBasicOperations()
@@ -178,7 +178,7 @@ async def get_user_data_by_access_token(
         access_token: str = Header(description="Авторизационный токен")
 ):
     """
-    Данный эндпоинт возвращает информацию по пользователю, идетнифицируя его по переданному Access-Token'у.
+    Данный эндпоинт возвращает информацию по пользователю, идентифицируя его по переданному Access-Token'у.
     """
     return users_controller.get_user_data(
         decoded_access_token=authorization_controller.decode_token_without_validation(access_token)
@@ -216,6 +216,44 @@ async def get_user_data_by_user_id(
     ему только в случае, если он является администратором.
     """
     return users_controller.get_user_data(
+        decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        user_id=user_id
+    )
+
+
+@app.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=DeleteUserSuccessfulResponse,
+    response_description=DeleteUserSuccessfulResponse.__doc__,
+    responses={
+        403: {
+            "model": DeleteUserForbiddenError,
+            "description": DeleteUserForbiddenError.__doc__
+        },
+        404: {
+            "model": GetUserDataNotFoundError,
+            "description": GetUserDataNotFoundError.__doc__
+        }
+    },
+    tags=["Users"]
+)
+async def delete_user(
+        access_token: str = Header(description="Авторизационный токен администратора"),
+        user_id: UUID = Path(description="ID пользователя, которого необходимо удалить"),
+):
+    """
+    Данный эндпоинт удаляет пользователя по переданному ID.
+
+    Удаление является окончательным, при успешном исходе - удаляется запись о пользователе, все его авторизационные
+    токены (активные, истёкшие, отозыванные) и все прочие сущности, связанные с удаляемым пользователем.
+
+    Запрос находится в авторизованной зоне и требует передачи Access-Token'а пользователя, наделённого правами
+    администратора.
+
+    При успешном удалении в ответе возвращается статусное сообщение.
+    """
+    return users_controller.delete_user(
         decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
         user_id=user_id
     )
