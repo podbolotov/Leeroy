@@ -45,4 +45,4 @@
 
 ---
 
-[⬅️ Вернуться в "README"](../README.md)
+[⬅️ Вернуться в "README"](https://github.com/podbolotov/Leeroy)
