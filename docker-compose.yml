@@ -16,11 +16,44 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+      image: dpage/pgadmin4:8.11.0
+      depends_on:
+        database:
+          condition: service_healthy
+      ports:
+        - 8081:80
+      environment:
+        - PGADMIN_DEFAULT_EMAIL=leroy_admin@contoso.com
+        - PGADMIN_DEFAULT_PASSWORD=DeF4u1t_pwd
+        - PGADMIN_CONFIG_SERVER_MODE=False
+        - PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED=False
+        - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      entrypoint: >
+        /bin/sh -c '
+        echo "database:5432:*:postgres:postgres" > /tmp/pgpass;
+        chmod 600 /tmp/pgpass;
+        echo "{\"Servers\":{\"1\":{\"Name\":\"Leeroy DBMS\",\"Group\":\"Servers\",\"Host\":\"database\",
+        \"Port\":5432,\"MaintenanceDB\":\"postgres\",\"Username\":\"postgres\",\"PassFile\":\"/tmp/pgpass\",
+        \"SSLMode\":\"prefer\"}}}" > /pgadmin4/servers.json;
+        /entrypoint.sh
+        '
+      user: root
+      healthcheck:
+        test: [ "CMD", "wget", "-O", "-", "http://localhost:80/misc/ping" ]
+        interval: 10s
+        timeout: 10s
+        retries: 5
+      logging:
+        driver: none
+
   leeroy:
     build: .
     image: leeroy
     depends_on:
       database:
+        condition: service_healthy
+      pgadmin:
         condition: service_healthy
     ports:
       - 8080:8080

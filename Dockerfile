@@ -1,9 +1,10 @@
-FROM python:3.12.5
+FROM python:3.12.5-slim-bookworm
 
 WORKDIR /code
 
 COPY ./requirements.txt /code/requirements.txt
 
+RUN apt-get update && apt-get -y install libpq-dev gcc
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY ./controllers /code/controllers
