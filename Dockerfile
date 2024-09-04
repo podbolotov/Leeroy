@@ -1,11 +1,28 @@
-FROM python:3.12.5-slim-bookworm
+# Первая стадия
+FROM python:3.12.5-alpine AS builder
+
+RUN apk update && \
+    apk add musl-dev libpq-dev gcc
+
+RUN python -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY ./requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Вторая стадия
+FROM python:3.12.5-alpine
+RUN apk update && \
+    apk add libpq-dev
+
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /code
-
-COPY ./requirements.txt /code/requirements.txt
-
-RUN apt-get update && apt-get -y install libpq-dev gcc
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY ./controllers /code/controllers
 COPY ./data /code/data
