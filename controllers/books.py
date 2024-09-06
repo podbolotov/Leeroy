@@ -4,12 +4,10 @@ from database.books import BooksDatabaseOperations as BooksDBOps
 
 
 class BooksController:
-    def __init__(self, connection, cursor):
-        self.connection = connection
-        self.cursor = cursor
 
-    def get_all_books(self):
-        books = BooksDBOps.get_all_books(cursor=self.cursor)
+    @staticmethod
+    def get_all_books():
+        books = BooksDBOps.get_all_books()
         books_list = []
         for book in books:
             book_dict = {
@@ -25,8 +23,9 @@ class BooksController:
             content=books_list
         )
 
-    def get_book_by_id(self, book_id: UUID):
-        book = BooksDBOps.get_book_by_id(connection=self.connection, cursor=self.cursor, book_id=book_id)
+    @staticmethod
+    def get_book_by_id(book_id: UUID):
+        book = BooksDBOps.get_book_by_id(book_id=book_id)
         if book:
             return JSONResponse(
                 status_code=200,

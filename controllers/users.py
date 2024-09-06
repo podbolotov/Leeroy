@@ -14,9 +14,6 @@ from models.users import (CreateUserForbiddenError, CreateUserEmailIsNotAvailabl
 
 
 class UsersController:
-    def __init__(self, connection, cursor):
-        self.connection = connection
-        self.cursor = cursor
 
     @staticmethod
     def hash_password(password: str):
@@ -34,8 +31,6 @@ class UsersController:
 
         # Получаем все данные по запрашивающему из БД
         requester_data = UsersDBOps.get_user_data(
-            connection=self.connection,
-            cursor=self.cursor,
             find_by='id',
             user_id=requester_id
         )
@@ -48,8 +43,6 @@ class UsersController:
                 ))
 
         is_email_used = UsersDBOps.get_user_data(
-            connection=self.connection,
-            cursor=self.cursor,
             find_by='email',
             user_email=email
         )
@@ -63,8 +56,6 @@ class UsersController:
                 ))
 
         user_id = UsersDBOps.create_new_user(
-            connection=self.connection,
-            cursor=self.cursor,
             firstname=firstname,
             middlename=middlename,
             surname=surname,
@@ -79,7 +70,8 @@ class UsersController:
                 CreateUserSuccessfulResponse(user_id=user_id)
             ))
 
-    def get_user_data(self, decoded_access_token: DecodedJsonWebToken, user_id: UUID = None) -> JSONResponse:
+    @staticmethod
+    def get_user_data(decoded_access_token: DecodedJsonWebToken, user_id: UUID = None) -> JSONResponse:
 
         # ID пользователя, делающего запрос данных по пользователю.
         requester_id = decoded_access_token.user_id
@@ -89,8 +81,6 @@ class UsersController:
 
             # Проверяем наличие прав администратора у запрашивающего.
             requester_data = UsersDBOps.get_user_data(
-                connection=self.connection,
-                cursor=self.cursor,
                 find_by='id',
                 user_id=str(requester_id)
             )
@@ -99,8 +89,6 @@ class UsersController:
             # Если запрашивающий является администратором - ищем данные по запрошенному пользователю и записываем их.
             if is_requester_admin is True:
                 user_data = UsersDBOps.get_user_data(
-                    connection=self.connection,
-                    cursor=self.cursor,
                     find_by='id',
                     user_id=str(user_id)
                 )
@@ -113,8 +101,6 @@ class UsersController:
         # Если передан user_id, но он равен id запрашивающего, значит пользователь ищет информацию по себе.
         elif user_id is not None and requester_id == user_id:
             user_data = UsersDBOps.get_user_data(
-                connection=self.connection,
-                cursor=self.cursor,
                 find_by='id',
                 user_id=str(requester_id)
             )
@@ -123,8 +109,6 @@ class UsersController:
         # используем requester_id из декодированного Access-Token'а.
         elif user_id is None:
             user_data = UsersDBOps.get_user_data(
-                connection=self.connection,
-                cursor=self.cursor,
                 find_by='id',
                 user_id=str(requester_id)
             )
@@ -163,14 +147,13 @@ class UsersController:
                 ), exclude_none=True
             ))
 
-    def delete_user(self, decoded_access_token: DecodedJsonWebToken, user_id: UUID) -> JSONResponse:
+    @staticmethod
+    def delete_user(decoded_access_token: DecodedJsonWebToken, user_id: UUID) -> JSONResponse:
         # ID пользователя, делающего запрос на удаление пользователя.
         requester_id = decoded_access_token.user_id
 
         # Проверяем наличие прав администратора у запрашивающего.
         requester_data = UsersDBOps.get_user_data(
-            connection=self.connection,
-            cursor=self.cursor,
             find_by='id',
             user_id=str(requester_id)
         )
@@ -181,8 +164,6 @@ class UsersController:
 
             # Проверяем, существует ли пользователь, которого пытаются удалить.
             user_for_delete_data = UsersDBOps.get_user_data(
-                connection=self.connection,
-                cursor=self.cursor,
                 find_by='id',
                 user_id=str(user_id)
             )
@@ -206,8 +187,6 @@ class UsersController:
 
             # Удаляем пользователя и все выпущенные на него токены в БД
             UsersDBOps.delete_user_and_delete_all_users_tokens_by_user_id(
-                connection=self.connection,
-                cursor=self.cursor,
                 user_id=user_id
             )
 

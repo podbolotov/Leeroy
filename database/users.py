@@ -1,13 +1,11 @@
 import uuid
 from uuid import UUID
-
+from database.connect_database import create_db_connection
 
 class UsersDatabaseOperations:
 
     @staticmethod
     def create_new_user(
-            connection,
-            cursor,
             firstname: str,
             surname: str,
             email: str,
@@ -34,44 +32,50 @@ class UsersDatabaseOperations:
             is_admin
         )
 
-        cursor.execute(insert_user_query, user_data)
-        connection.commit()
+        connection = create_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute(insert_user_query, user_data)
+            connection.commit()
+        connection.close()
         return user_id
 
     @staticmethod
     def get_user_data(
-            connection,
-            cursor,
             user_id: str | None = None,
             user_email: str | None = None,
             find_by: str = 'email'
     ):
-        try:
-            if find_by == 'email' and user_email is not None:
-                cursor.execute('SELECT * from public.users WHERE email = %s;', (str(user_email),))
-            elif find_by == 'id' and user_id is not None:
-                cursor.execute('SELECT * from public.users WHERE id = %s;', (str(user_id),))
-            else:
-                raise ValueError("Unsupported find_by type or missed search query")
+            connection = create_db_connection()
 
-            user_data = cursor.fetchone()
+            try:
+                with connection.cursor() as cursor:
+                    if find_by == 'email' and user_email is not None:
+                        cursor.execute('SELECT * from public.users WHERE email = %s;', (str(user_email),))
+                    elif find_by == 'id' and user_id is not None:
+                        cursor.execute('SELECT * from public.users WHERE id = %s;', (str(user_id),))
+                    else:
+                        raise ValueError("Unsupported find_by type or missed search query")
+                    user_data = cursor.fetchone()
 
-            return user_data
+                connection.close()
+                return user_data
 
-        except Exception as e:
-            connection.rollback()
-            raise RuntimeError(f'Database request if failed!\n{e}')
+            except Exception as e:
+                connection.rollback()
+                connection.close()
+                raise RuntimeError(f'Database request if failed!\n{e}')
 
     @staticmethod
     def delete_user_and_delete_all_users_tokens_by_user_id(
-            connection,
-            cursor,
             user_id: UUID
     ):
+        connection = create_db_connection()
         try:
-            cursor.execute('DELETE from public.users WHERE id = %s;', (str(user_id),))
-            connection.commit()
-            return
+            with connection.cursor() as cursor:
+                cursor.execute('DELETE from public.users WHERE id = %s;', (str(user_id),))
+                connection.commit()
+            connection.close()
         except Exception as e:
             connection.rollback()
+            connection.close()
             raise RuntimeError(f'Database request if failed!\n{e}')

@@ -19,9 +19,7 @@ from models.default_error import DefaultError
 
 
 class AuthorizationController:
-    def __init__(self, connection, cursor):
-        self.connection = connection
-        self.cursor = cursor
+    def __init__(self):
         self.secret = str(SeVars.JWT_SIGNATURE_SECRET)
         self.access_token_ttl_minutes = int(SeVars.ACCESS_TOKEN_TTL_IN_MINUTES)
         self.refresh_token_ttl_minutes = int(SeVars.REFRESH_TOKEN_TTL_IN_MINUTES)
@@ -70,7 +68,6 @@ class AuthorizationController:
 
             # Запрашиваем данные по токену из БД
             token_data_from_db = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='access',
                 token_id=decoded_token['id']
             )
@@ -129,8 +126,6 @@ class AuthorizationController:
         }
 
         AuthDBOps.save_token_data(
-            connection=self.connection,
-            cursor=self.cursor,
             token_type='access',
             token_id=access_token_payload['id'],
             user_id=access_token_payload['user_id'],
@@ -140,8 +135,6 @@ class AuthorizationController:
         )
 
         AuthDBOps.save_token_data(
-            connection=self.connection,
-            cursor=self.cursor,
             token_type='refresh',
             token_id=refresh_token_payload['id'],
             user_id=refresh_token_payload['user_id'],
@@ -183,8 +176,6 @@ class AuthorizationController:
         hashed_received_password = UsersController.hash_password(password)
 
         user_data = UsersDBOps.get_user_data(
-            connection=self.connection,
-            cursor=self.cursor,
             user_email=email
         )
 
@@ -255,7 +246,6 @@ class AuthorizationController:
         # Если автономные (без запроса данных из БД) проверки прошли успешно - запрашиваем данные по
         # переданному токену из БД, далее проверяем полученные данные.
         refresh_token_data_from_db = AuthDBOps.get_token_data_by_id(
-            cursor=self.cursor,
             token_type='refresh',
             token_id=decoded_token['id']
         )
@@ -289,15 +279,12 @@ class AuthorizationController:
         try:
             # Запускаем процедуру отзыва токенов
             AuthDBOps.revoke_tokens(
-                connection=self.connection,
-                cursor=self.cursor,
                 token_type='refresh',
                 token_id=refresh_token_id
             )
 
             # После завершения работы процедуры отзыва токенов - сохраняем новый статус переданного рефреш-токена.
             is_refresh_token_revoked = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='refresh',
                 token_id=refresh_token_id
             )[5]
@@ -305,7 +292,6 @@ class AuthorizationController:
             # Также сохраняем новый статус access-токена, который связан с переданным рефреш-токеном и также должен
             # быть отозван.
             is_access_token_revoked = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='access',
                 token_id=access_token_id
             )[5]
@@ -347,26 +333,21 @@ class AuthorizationController:
             access_token_id = decoded_token['id']
 
             refresh_token_id = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='access',
                 token_id=access_token_id
             )[4]
 
             AuthDBOps.revoke_tokens(
-                connection=self.connection,
-                cursor=self.cursor,
                 token_type='access',
                 token_id=access_token_id
             )
 
             is_access_token_revoked = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='access',
                 token_id=access_token_id
             )[5]
 
             is_refresh_token_revoked = AuthDBOps.get_token_data_by_id(
-                cursor=self.cursor,
                 token_type='refresh',
                 token_id=refresh_token_id
             )[5]

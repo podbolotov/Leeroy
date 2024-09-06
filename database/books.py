@@ -1,4 +1,5 @@
 import uuid
+from database.connect_database import create_db_connection
 
 
 class BooksDatabaseOperations:
@@ -7,25 +8,35 @@ class BooksDatabaseOperations:
     """
 
     @staticmethod
-    def add_book(connection, cursor, title, author, isbn):
+    def add_book(title, author, isbn):
         insert_book_query = """ INSERT INTO public.books (id, title, author, isbn) VALUES (%s,%s,%s,%s) """
         book_id = str(uuid.uuid4())
         book_bundle = (book_id, title, author, isbn)
-        cursor.execute(insert_book_query, book_bundle)
-        connection.commit()
+
+        connection = create_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute(insert_book_query, book_bundle)
+            connection.commit()
+        connection.close()
         return book_id
 
     @staticmethod
-    def get_all_books(cursor):
-        cursor.execute('SELECT * from public.books;')
-        books = cursor.fetchall()
+    def get_all_books():
+        connection = create_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT * from public.books;')
+            books = cursor.fetchall()
+        connection.close()
         return books
 
     @staticmethod
-    def get_book_by_id(connection, cursor, book_id: uuid.UUID):
+    def get_book_by_id(book_id: uuid.UUID):
+        connection = create_db_connection()
         try:
-            cursor.execute('SELECT * from public.books WHERE id = %s;', (str(book_id),))
-            book = cursor.fetchone()
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT * from public.books WHERE id = %s;', (str(book_id),))
+                book = cursor.fetchone()
+            connection.close()
             return book
         except Exception as e:
             connection.rollback()

@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, status, Header, Body, Path
 from controllers.authorization import AuthorizationController
 from controllers.books import BooksController
 from controllers.users import UsersController
-from database.basic_operations import DatabaseBasicOperations
+from database.initialization_script import DatabaseBasicOperations
 from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse, \
     LogoutSuccessfulResponse
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
@@ -20,7 +20,7 @@ from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUse
 from data.available_without_auth import pathes as available_without_auth_pathes
 
 db_basic_ops = DatabaseBasicOperations()
-db_connection, db_cursor = db_basic_ops.connect_to_database()
+db_basic_ops.init_database()
 
 app_description = open('README.md', 'r', encoding="utf-8")
 app = FastAPI(
@@ -29,9 +29,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-authorization_controller = AuthorizationController(connection=db_connection, cursor=db_cursor)
-books_controller = BooksController(connection=db_connection, cursor=db_cursor)
-users_controller = UsersController(connection=db_connection, cursor=db_cursor)
+authorization_controller = AuthorizationController()
+books_controller = BooksController()
+users_controller = UsersController()
 
 
 @app.middleware("http")
