@@ -33,7 +33,7 @@
 ----
 ### Копирайт
 
-Автор иконки, используемой на баннере: [DinosoftLabs (flaticon.com)](https://www.flaticon.com/free-icon/browser_718064).
+Автор иконки, используемой на баннере: [vectorsmarket15 (flaticon.com)](https://www.flaticon.com/free-icon/digital-library_2888451).
 
 Используемый на баннере шрифт: [JetBrains Mono](https://www.jetbrains.com/lp/mono/).
 
