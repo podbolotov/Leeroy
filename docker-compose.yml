@@ -3,7 +3,7 @@ version: '3.9'
 services:
 
   database:
-    image: postgres:15.8
+    image: postgres:16.4-alpine3.20
     ports:
       - 5432:5432
     volumes:
@@ -42,14 +42,14 @@ services:
       healthcheck:
         test: [ "CMD", "wget", "-O", "-", "http://localhost:80/misc/ping" ]
         interval: 10s
-        timeout: 10s
+        timeout: 5s
         retries: 5
       logging:
         driver: none
 
   leeroy:
     build: .
-    image: leeroy
+    image: leeroy:1.0.0
     depends_on:
       database:
         condition: service_healthy

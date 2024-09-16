@@ -22,7 +22,7 @@ from data.available_without_auth import pathes as available_without_auth_pathes
 db_basic_ops = DatabaseBasicOperations()
 db_basic_ops.init_database()
 
-app_description = open('README.md', 'r', encoding="utf-8")
+app_description = open('docs/swagger_descriptions.md', 'r', encoding="utf-8")
 app = FastAPI(
     title="Leeroy",
     description=app_description.read(),
