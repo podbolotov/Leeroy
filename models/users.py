@@ -6,6 +6,14 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 from models.default_error import DefaultError
 
+class PermissionActions(str, Enum):
+    """
+    Возможные действия над правами пользователя.
+    """
+    grant="grant"
+    """ Предоставить права администратора """
+    revoke="revoke"
+    """ Отозвать права администратора """
 
 class UserDataModel(BaseModel):
     """
@@ -74,6 +82,15 @@ class DeleteUserForbiddenReason(str, Enum):
     user_is_not_admin = "Only administrators can delete users"
     admin_can_not_be_deleted = "Administrator can not be deleted"
 
+class ChangePermissionsValueErrorReason(str, Enum):
+    user_is_already_has_admin_permissions = "User is already has administrator permissions"
+    user_is_already_has_no_admin_permissions = "User is already has no administrator permissions"
+
+
+class ChangePermissionsForbiddenErrorReason(str, Enum):
+    lack_of_permissions = "Only administrators can change administrator permissions"
+    last_administrator = "Last administrator permissions can not be revoked!"
+
 
 class DeleteUserForbiddenError(DefaultError):
     """ Данная ошибка возвращается в случае, если запрос на удаление отправлен от имени пользователя, не имеющего прав
@@ -91,6 +108,49 @@ class DeleteUserForbiddenError(DefaultError):
                 {
                     "status": "FORBIDDEN",
                     "description": "Administrator can not be deleted"
+                }
+            ]
+        }
+    }
+
+class ChangeUserPermissionsForbiddenError(DefaultError):
+    """ Данная ошибка возвращается в случае, если пользователь пытается изменить уровень доступа пользователя (наличие
+    прав администратора), не имея прав администратора, либо если права администратора пытаются отозвать у последнего
+     существующего администратора. """
+    status: Literal["FORBIDDEN"] = "FORBIDDEN"
+    description: ChangePermissionsForbiddenErrorReason
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "FORBIDDEN",
+                    "description": ChangePermissionsForbiddenErrorReason.lack_of_permissions
+                },
+                {
+                    "status": "PERMISSIONS_IS_NOT_CHANGED",
+                    "description": ChangePermissionsForbiddenErrorReason.last_administrator
+                }
+            ]
+        }
+    }
+
+class ChangeUserPermissionsValueError(DefaultError):
+    """ Данная ошибка возвращается в случае, если пользователю пытаются присвоить уже имеющийся у него уровень
+    прав. """
+    status: Literal["PERMISSION_IS_NOT_CHANGED"] = "PERMISSIONS_IS_NOT_CHANGED"
+    description: ChangePermissionsValueErrorReason
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "PERMISSIONS_IS_NOT_CHANGED",
+                    "description": ChangePermissionsValueErrorReason.user_is_already_has_admin_permissions
+                },
+                {
+                    "status": "PERMISSIONS_IS_NOT_CHANGED",
+                    "description": ChangePermissionsValueErrorReason.user_is_already_has_no_admin_permissions
                 }
             ]
         }
@@ -167,6 +227,24 @@ class GetUserDataSuccessfulResponse(CreateUserRequestBody):
                     "firstname": "Leeroy",
                     "middlename": "Pals for Life",
                     "surname": "Jenkins",
+                    "is_admin": True
+                }
+            ]
+        }
+    }
+
+
+class ChangeUserPermissionSuccessfulResponse(BaseModel):
+    """ Ответ, возвращаемый в случае успешного изменения уровня прав пользователя. """
+
+    status: str = "Administrator permissions for user is successfully changed",
+    is_admin: bool = True
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "Administrator permissions for Leeroy Matthew Jenkins is successfully changed",
                     "is_admin": True
                 }
             ]

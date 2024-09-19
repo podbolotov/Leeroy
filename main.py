@@ -1,7 +1,6 @@
 """
 Этот модуль отвечает за базовую логику запуска приложения и машрутизацию на все доступные эндпоинты.
 """
-
 from uuid import UUID
 
 import uvicorn
@@ -16,7 +15,8 @@ from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauth
 from models.books import BookNotFoundError, SingleBook, MultipleBooks
 from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUserDataForbiddenError, \
     CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, DeleteUserSuccessfulResponse, \
-    GetUserDataSuccessfulResponse, GetUserDataNotFoundError, DeleteUserForbiddenError
+    GetUserDataSuccessfulResponse, GetUserDataNotFoundError, DeleteUserForbiddenError, PermissionActions, \
+    ChangeUserPermissionsValueError, ChangeUserPermissionSuccessfulResponse, ChangeUserPermissionsForbiddenError
 from data.available_without_auth import pathes as available_without_auth_pathes
 
 db_basic_ops = DatabaseBasicOperations()
@@ -26,7 +26,7 @@ app_description = open('docs/swagger_descriptions.md', 'r', encoding="utf-8")
 app = FastAPI(
     title="Leeroy",
     description=app_description.read(),
-    version="1.0.0"
+    version="0.5.0"
 )
 
 authorization_controller = AuthorizationController()
@@ -218,6 +218,52 @@ async def get_user_data_by_user_id(
     return users_controller.get_user_data(
         decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
         user_id=user_id
+    )
+
+
+@app.patch(
+    "/users/admin-permissions/{user_id}/{permission_action}",
+    status_code=status.HTTP_200_OK,
+    response_model=ChangeUserPermissionSuccessfulResponse,
+    response_description=ChangeUserPermissionSuccessfulResponse.__doc__,
+    responses={
+        400: {
+            "model": ChangeUserPermissionsValueError,
+            "description": ChangeUserPermissionsValueError.__doc__
+        },
+        403: {
+            "model": ChangeUserPermissionsForbiddenError,
+            "description": ChangeUserPermissionsForbiddenError.__doc__
+        },
+        404: {
+            "model": GetUserDataNotFoundError,
+            "description": GetUserDataNotFoundError.__doc__
+        }
+    },
+    tags=["Users"]
+)
+async def change_user_permissions(
+        access_token: str = Header(description="Авторизационный токен администратора"),
+        user_id: UUID = Path(description="ID пользователя, права которого необходимо изменить"),
+        permission_action: PermissionActions = Path(description="Действие над правами пользователя")
+):
+    """
+    Данный эндпоинт меняет права администратора для пользователя, ID которого передан в запросе.
+
+    Запрос находится в авторизованной зоне и требует передачи Access-Token'а пользователя, наделённого правами
+    администратора.
+
+    Обратите внимание, что если пользователь, ID которого передан, является последним пользователем с правами
+    администратора, то понизить уровень прав такого пользователя не удастся.
+
+    При успешной смене прав в ответе возвращается статусное сообщение и новое значение признака наличия
+    администраторских прав у пользователя, уровень прав которого был изменён.
+
+    """
+    return users_controller.change_user_permission(
+        decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        user_id=user_id,
+        permission_action=permission_action
     )
 
 

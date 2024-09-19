@@ -1,0 +1,1 @@
+class LastAdministratorInDbError(Exception): pass

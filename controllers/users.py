@@ -10,8 +10,11 @@ from models.default_error import DefaultError
 from models.jwt_tokens import DecodedJsonWebToken
 from models.users import (CreateUserForbiddenError, CreateUserEmailIsNotAvailableError,
                           CreateUserSuccessfulResponse, GetUserDataSuccessfulResponse, GetUserDataForbiddenError,
-                          DeleteUserForbiddenError, GetUserDataNotFoundError, DeleteUserSuccessfulResponse)
-
+                          DeleteUserForbiddenError, GetUserDataNotFoundError, DeleteUserSuccessfulResponse,
+                          PermissionActions, ChangeUserPermissionsValueError, ChangeUserPermissionsForbiddenError,
+                          ChangePermissionsForbiddenErrorReason, ChangePermissionsValueErrorReason,
+                          ChangeUserPermissionSuccessfulResponse)
+from database.custom_exceptions import LastAdministratorInDbError
 
 class UsersController:
 
@@ -202,3 +205,114 @@ class UsersController:
                 status_code=403,
                 content=jsonable_encoder(DeleteUserForbiddenError(description="Only administrators can delete users"))
             )
+
+    @staticmethod
+    def change_user_permission(
+            decoded_access_token: DecodedJsonWebToken, user_id: UUID, permission_action: PermissionActions
+    ) -> JSONResponse:
+        """ Данный метод обеспечивает изменение уровня доступа (присвоения и отзыва прав администратора).
+
+        :param decoded_access_token: Данный метод обеспечивает изменение уровня доступа (присвоения и отзыва прав администратора).
+        :param user_id: ID пользователя, уровень прав которого требуется изменить.
+        :param permission_action: Действие, которое требуется выполнить (назначение или отзыв прав).
+        :return: Один из множества ответов типа JSONResponse """
+
+        # ID пользователя, делающего запрос на изменение уровня прав пользователя.
+        requester_id = decoded_access_token.user_id
+
+        # Проверяем наличие прав администратора у запрашивающего.
+        requester_data = UsersDBOps.get_user_data(
+            find_by='id',
+            user_id=str(requester_id)
+        )
+
+        # Если запрашивающий не имеет прав администратора - отказываем ему в изменении уровня прав пользователя.
+        if requester_data.is_admin is not True:
+            return JSONResponse(
+                status_code=403,
+                content=jsonable_encoder(
+                    ChangeUserPermissionsForbiddenError(
+                        description=ChangePermissionsForbiddenErrorReason.lack_of_permissions
+                    )
+                ))
+
+        # Получаем данные пользователя из базы данных
+        user_data = UsersDBOps.get_user_data(
+            find_by='id',
+            user_id=str(user_id)
+        )
+
+        # Если пользователя не существует, то возвращаем соответствующую ошибку.
+        if user_data is None:
+            return JSONResponse(
+                status_code=404,
+                content=jsonable_encoder(
+                    GetUserDataNotFoundError(description=f"User with id {user_id} is not found.")
+                ))
+
+        # Отказываем в изменении уровня прав, если пользователя с правами администратора пытаются повторно повысить.
+        if user_data.is_admin is True and permission_action == permission_action.grant:
+            return JSONResponse(
+                status_code=400,
+                content=jsonable_encoder(
+                    ChangeUserPermissionsValueError(
+                        description=ChangePermissionsValueErrorReason.user_is_already_has_admin_permissions
+                    )
+                ))
+
+        # Отказываем в изменении уровня прав, если пользователя без правав администратора пытаются повторно понизить.
+        if user_data.is_admin is False and permission_action == permission_action.revoke:
+            return JSONResponse(
+                status_code=400,
+                content=jsonable_encoder(
+                    ChangeUserPermissionsValueError(
+                        description=ChangePermissionsValueErrorReason.user_is_already_has_no_admin_permissions
+                    )
+                ))
+
+        # Устанавливаем требуемое значение прав администратора исходя из типа запроса на изменение уровня.
+        if permission_action == permission_action.grant:
+            is_admin_state = True
+        elif permission_action == permission_action.revoke:
+            is_admin_state = False
+        else:
+            raise ValueError("Unexpected permission_action value!")
+
+        # Отправляем запрос на изменение уровня прав в БД, и возвращаем ошибку, если будет обнаружена попытка отзыва
+        # прав администратора у последнего существующего администратора.
+        try:
+            UsersDBOps.update_administrator_permissions_by_user_id(
+                user_id=str(user_id),
+                is_admin=is_admin_state
+            )
+        except LastAdministratorInDbError:
+            return JSONResponse(
+                status_code=403,
+                content=jsonable_encoder(
+                    ChangeUserPermissionsForbiddenError(
+                        description=ChangePermissionsForbiddenErrorReason.last_administrator
+                    )
+                ))
+
+        # Повторно запрашиваем актуальный статус наличия прав администратора.
+        changed_user_data = UsersDBOps.get_user_data(
+            find_by='id',
+            user_id=str(user_id)
+        )
+
+        # Формируем полную строку с именем, средним именем/отчеством и фамилией пользователя.
+        user_fullname = user_data.firstname
+        if user_data.middlename is not None: user_fullname = user_fullname + f" {user_data.middlename}"
+        user_fullname = user_fullname + f" {user_data.surname}"
+
+        # Возвращаем ответ с сообщением об успешном изменении уровня прав и новым признаком наличия администраторского
+        # доступа.
+        return JSONResponse(
+                status_code=200,
+                content=
+                jsonable_encoder(
+                    ChangeUserPermissionSuccessfulResponse(
+                        status=f"Administrator permissions for {user_fullname} is successfully changed",
+                        is_admin=changed_user_data.is_admin
+                    )
+                ))

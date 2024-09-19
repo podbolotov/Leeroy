@@ -1,6 +1,10 @@
 import uuid
 from uuid import UUID
+
+from psycopg2 import extras, errors
+
 from database.connect_database import create_db_connection
+from database.custom_exceptions import LastAdministratorInDbError
 
 class UsersDatabaseOperations:
 
@@ -48,7 +52,7 @@ class UsersDatabaseOperations:
             connection = create_db_connection()
 
             try:
-                with connection.cursor() as cursor:
+                with connection.cursor(cursor_factory=extras.NamedTupleCursor) as cursor:
                     if find_by == 'email' and user_email is not None:
                         cursor.execute('SELECT * from public.users WHERE email = %s;', (str(user_email),))
                     elif find_by == 'id' and user_id is not None:
@@ -64,6 +68,54 @@ class UsersDatabaseOperations:
                 connection.rollback()
                 connection.close()
                 raise RuntimeError(f'Database request if failed!\n{e}')
+
+    @staticmethod
+    def update_administrator_permissions_by_user_id(
+            user_id: str,
+            is_admin: bool
+    ):
+        """ Данный метод обеспечивает обновление признака "is_admin" (наличие прав администратора у пользователя) в БД.
+
+        :param user_id: ID пользователя, признак "is_admin" которого необходимо изменить.
+        :param is_admin: Желаемое значение признака "is_admin".
+        :raises LastAdministratorInDbError: Ошибка, возвращаемая в случае, если последнему владельцу признака is_admin
+        со значением True пытаются присвоить значение False (то есть, при попытке отзыва прав администратора у
+        последнего администратора).
+        :raises RuntimeError: Общая ошибка для всех необработанных ошибок работы с БД.
+        """
+        connection = create_db_connection()
+
+        try:
+            with connection.cursor(cursor_factory=extras.NamedTupleCursor) as cursor:
+                if is_admin is True:
+                    cursor.execute('UPDATE public.users SET is_admin = true WHERE id = %s;', (str(user_id),) )
+                elif is_admin is False:
+                    cursor.execute(
+                        '''
+                        DO
+                        $do$
+                        BEGIN
+                        IF (SELECT COUNT(*) FROM public.users WHERE is_admin = true) <= 1 THEN
+                            RAISE EXCEPTION 'LAST_ADMIN';
+                        ELSE
+                            UPDATE public.users SET is_admin = false WHERE id = %s;
+                        END IF;
+                        END
+                        $do$
+                        ''', (str(user_id),)
+                    )
+                connection.commit()
+            connection.close()
+
+        except errors.RaiseException:
+            connection.rollback()
+            connection.close()
+            raise LastAdministratorInDbError("Last administrator permissions can't be revoked!")
+
+        except Exception as e:
+            connection.rollback()
+            connection.close()
+            raise RuntimeError(f'Database request if failed!\n{e}')
 
     @staticmethod
     def delete_user_and_delete_all_users_tokens_by_user_id(
