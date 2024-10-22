@@ -1,5 +1,5 @@
 """
-Этот модуль отвечает за базовую логику запуска приложения и машрутизацию на все доступные эндпоинты.
+Этот модуль отвечает за базовую логику запуска приложения и маршрутизацию на все доступные эндпоинты.
 """
 from uuid import UUID
 
@@ -35,7 +35,7 @@ users_controller = UsersController()
 
 
 @app.middleware("http")
-async def authentification_check_middleware(request: Request, call_next):
+async def authentication_check_middleware(request: Request, call_next):
     access_token = request.headers.get('Access-Token')
 
     if request.url.path in available_without_auth_pathes:

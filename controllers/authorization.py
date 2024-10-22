@@ -11,7 +11,7 @@ from controllers.users import UsersController
 from data.service_variables import ServiceVariables as SeVars
 from database.authorization import AuthorizationDatabaseOperations as AuthDBOps
 from database.users import UsersDatabaseOperations as UsersDBOps
-from models.authorization import AuthSuccessfulResponse
+from models.authorization import AuthSuccessfulResponse, AuthUnauthorizedError
 from models.jwt_tokens import DecodedJsonWebToken, ValidationErrorTokenNotProvided, ValidationErrorTokenBadSignature, \
     ValidationErrorTokenMalformed, ValidationErrorTokenExpired, ValidationErrorTokenNotFoundInDatabase, \
     ValidationErrorTokenRevoked
@@ -182,33 +182,26 @@ class AuthorizationController:
         if user_data is None:
             return JSONResponse(
                 status_code=401,
-                content={
-                    "status": "UNAUTHORIZED",
-                    "description": f"User with email {email} is not found or password is incorrect"
-                })
+                content=jsonable_encoder(
+                    AuthUnauthorizedError(
+                        description=f"User with email {email} is not found or password is incorrect")
+                ))
 
         stored_users_password_hash = user_data[5]
 
         if hashed_received_password != stored_users_password_hash:
             return JSONResponse(
                 status_code=401,
-                content={
-                    "status": "UNAUTHORIZED",
-                    "description": f"User with email {email} is not found or password is incorrect"
-                })
+                content=jsonable_encoder(
+                    AuthUnauthorizedError(
+                        description=f"User with email {email} is not found or password is incorrect")
+                ))
 
         access_token, refresh_token = self.generate_tokens(user_id=user_data[0])
         return JSONResponse(
             status_code=200,
             content=AuthSuccessfulResponse(access_token=access_token, refresh_token=refresh_token).model_dump()
-        )  # эксперементальный способ возвращения данных при помощи модели
-
-        # return JSONResponse(
-        #     status_code=200,
-        #     content={
-        #         "access_token": access_token,
-        #         "refresh_token": refresh_token
-        #     })
+        )
 
     def refresh_tokens(self, refresh_token):
 
@@ -250,7 +243,7 @@ class AuthorizationController:
             token_id=decoded_token['id']
         )
 
-        # Если данные по ID токена найти не удалось, то возвращаем соответствуюшую ошибку.
+        # Если данные по ID токена найти не удалось, то возвращаем соответствующую ошибку.
         if refresh_token_data_from_db is None:
             return JSONResponse(
                 status_code=401,
@@ -274,7 +267,7 @@ class AuthorizationController:
         user_id = decoded_token['user_id']  # сохраняем полученный из декодированного токена user_id для его
         # прикрепления к новой паре авторизационных токенов
 
-        # Если  валидация рефреш-токена пройдена успешно, то запускаем
+        # Если валидация рефреш-токена пройдена успешно, то запускаем
         # процесс отзыва переданной пары токенов и выпуска новой пары.
         try:
             # Запускаем процедуру отзыва токенов
@@ -306,7 +299,7 @@ class AuthorizationController:
                     content=AuthSuccessfulResponse(access_token=access_token, refresh_token=refresh_token).model_dump()
                 )
 
-            # Если один токенов обновляемой пары не был отозван - сообщаем о ошибке.
+            # Если один токенов обновляемой пары не был отозван - сообщаем об ошибке.
             else:
                 return JSONResponse(
                     status_code=500,
