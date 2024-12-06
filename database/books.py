@@ -41,3 +41,19 @@ class BooksDatabaseOperations:
         except Exception as e:
             connection.rollback()
             raise RuntimeError(f'Database request if failed!\n{e}')
+
+    @staticmethod
+    def get_book_by_isbn(isbn: str):
+        connection = create_db_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT * from public.books WHERE isbn = %s;', (str(isbn),))
+                book = cursor.fetchone()
+            connection.close()
+            if book is not None:
+                return book
+            else:
+                return None
+        except Exception as e:
+            connection.rollback()
+            raise RuntimeError(f'Database request if failed!\n{e}')

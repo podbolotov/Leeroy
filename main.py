@@ -12,7 +12,8 @@ from controllers.users import UsersController
 from database.initialization_script import DatabaseBasicOperations
 from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse, \
     LogoutSuccessfulResponse
-from models.books import BookNotFoundError, SingleBook, MultipleBooks
+from models.books import BookNotFoundError, SingleBook, MultipleBooks, CreateBookRequestBody, \
+    CreateBookSuccessfulResponse, CreateBookForbiddenError, CreateBookNotUniqueIsbnError
 from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUserDataForbiddenError, \
     CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, DeleteUserSuccessfulResponse, \
     GetUserDataSuccessfulResponse, GetUserDataNotFoundError, DeleteUserForbiddenError, PermissionActions, \
@@ -302,6 +303,50 @@ async def delete_user(
     return users_controller.delete_user(
         decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
         user_id=user_id
+    )
+
+
+@app.post(
+    path="/books",
+    status_code=status.HTTP_200_OK,
+    response_model=CreateBookSuccessfulResponse,
+    responses={
+        400: {
+            "model": CreateBookNotUniqueIsbnError,
+            "description": CreateBookNotUniqueIsbnError.__doc__
+        },
+        403: {
+            "model": CreateBookForbiddenError,
+            "description": CreateBookForbiddenError.__doc__
+        }
+    },
+    tags=["Books"]
+)
+async def create_book(
+        access_token: str = Header(description="Авторизационный токен администратора"),
+        request_body: CreateBookRequestBody = Body()
+):
+    """
+    Данный эндпоинт добавляет в каталог новую книгу по переданным данным.
+
+    Среди переданных данных должны быть:
+    - Заголовок книги
+    - Автор
+    - ISBN (10 или 13 знаков)
+
+    Запрос находится в авторизованной зоне и требует передачи Access-Token'а пользователя, наделённого правами
+    администратора.
+
+    ISBN проверяется на уникальность: если книга с переданным ISBN уже существует в базе данных, то будет возвращена
+    соответствующая ошибка.
+
+    Формат переданного ISBN не изменяется: если был передан десятизначный номер, то он будет сохранён "как есть".
+
+    При успешном добавлении книги в ответе возвращается статусное сообщение и ID созданной книги.
+    """
+    return books_controller.create_book(
+        requester_decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        request_body=request_body
     )
 
 

@@ -142,7 +142,8 @@ class DatabaseBasicOperations:
                     title text NOT NULL,
                     author text NOT NULL,
                     isbn text NOT NULL,
-                    PRIMARY KEY (id)
+                    PRIMARY KEY (id),
+                    UNIQUE (isbn)
                 );
     
                 ALTER TABLE IF EXISTS public.books
@@ -154,13 +155,13 @@ class DatabaseBasicOperations:
             BooksDBOps.add_book(
                 title='Простой Python. Современный стиль программирования. 2-е изд.',
                 author='Любанович Б.',
-                isbn='978-5-4461-1639-3'
+                isbn='9785446116393'
             )
 
             BooksDBOps.add_book(
                 title='FastAPI: веб-разработка на Python',
                 author='Любанович Б.',
-                isbn='978-601-08-3847-5'
+                isbn='9786010838475'
             )
 
             connection.close()
