@@ -12,7 +12,7 @@ class AuthorizationDatabaseOperations:
     def save_token_data(
             token_type: str,
             token_id: str,
-            user_id: UUID,
+            user_id: str,
             issued_at: str,
             expired_at: str,
             partner_token_id: str
