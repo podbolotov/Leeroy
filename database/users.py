@@ -1,7 +1,8 @@
 import uuid
 from uuid import UUID
 
-from psycopg2 import extras, errors
+from psycopg import errors
+from psycopg.rows import namedtuple_row
 
 from database.connect_database import create_db_connection
 from database.custom_exceptions import LastAdministratorInDbError
@@ -52,7 +53,7 @@ class UsersDatabaseOperations:
             connection = create_db_connection()
 
             try:
-                with connection.cursor(cursor_factory=extras.NamedTupleCursor) as cursor:
+                with connection.cursor(row_factory=namedtuple_row) as cursor:
                     if find_by == 'email' and user_email is not None:
                         cursor.execute('SELECT * from public.users WHERE email = %s;', (str(user_email),))
                     elif find_by == 'id' and user_id is not None:
@@ -86,7 +87,7 @@ class UsersDatabaseOperations:
         connection = create_db_connection()
 
         try:
-            with connection.cursor(cursor_factory=extras.NamedTupleCursor) as cursor:
+            with connection.cursor(row_factory=namedtuple_row) as cursor:
                 if is_admin is True:
                     cursor.execute('UPDATE public.users SET is_admin = true WHERE id = %s;', (str(user_id),) )
                 elif is_admin is False:

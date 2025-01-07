@@ -113,14 +113,14 @@ class AuthorizationController:
 
         access_token_payload = {
             "id": str(uuid.uuid4()),
-            "user_id": user_id,
+            "user_id": str(user_id),
             "issued_at": issued_at,
             "expired_at": access_token_expired_at
         }
 
         refresh_token_payload = {
             "id": str(uuid.uuid4()),
-            "user_id": user_id,
+            "user_id": str(user_id),
             "issued_at": issued_at,
             "expired_at": refresh_token_expired_at
         }
