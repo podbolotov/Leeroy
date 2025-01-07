@@ -61,7 +61,7 @@ class BooksController:
         books_list = []
         for book in books:
             book_dict = {
-                "id": book[0],
+                "id": str(book[0]),
                 "title": book[1],
                 "author": book[2],
                 "isbn": book[3]
@@ -80,7 +80,7 @@ class BooksController:
             return JSONResponse(
                 status_code=200,
                 content={
-                    "id": book[0],
+                    "id": str(book[0]),
                     "title": book[1],
                     "author": book[2],
                     "isbn": book[3]
