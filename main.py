@@ -5,6 +5,7 @@ from uuid import UUID
 
 import uvicorn
 from fastapi import FastAPI, Request, status, Header, Body, Path
+from fastapi.encoders import jsonable_encoder
 
 from controllers.authorization import AuthorizationController
 from controllers.books import BooksController
@@ -12,8 +13,10 @@ from controllers.users import UsersController
 from database.initialization_script import DatabaseBasicOperations
 from models.authorization import AuthRequestBody, RefreshRequestBody, AuthUnauthorizedError, AuthSuccessfulResponse, \
     LogoutSuccessfulResponse
+from models.book_units import BookUnitHasActualReservationsError
 from models.books import BookNotFoundError, SingleBook, MultipleBooks, CreateBookRequestBody, \
-    CreateBookSuccessfulResponse, CreateBookForbiddenError, CreateBookNotUniqueIsbnError
+    CreateBookSuccessfulResponse, CreateBookForbiddenError, CreateBookNotUniqueIsbnError, DeleteBookForbiddenError, \
+    DeleteBookSuccessfulResponse
 from models.users import CreateUserRequestBody, CreateUserForbiddenError, GetUserDataForbiddenError, \
     CreateUserEmailIsNotAvailableError, CreateUserSuccessfulResponse, DeleteUserSuccessfulResponse, \
     GetUserDataSuccessfulResponse, GetUserDataNotFoundError, DeleteUserForbiddenError, PermissionActions, \
@@ -369,7 +372,12 @@ async def get_all_books(
     "/books/{book_id}",
     status_code=status.HTTP_200_OK,
     response_model=SingleBook,
-    responses={404: {"model": BookNotFoundError}},
+    responses={
+        404: {
+            "model": BookNotFoundError,
+            "description": BookNotFoundError.__doc__
+        }
+    },
     tags=["Books"]
 )
 async def get_book_by_id(
@@ -380,6 +388,71 @@ async def get_book_by_id(
     Данный эндпоинт возвращает одну книгу, в соответствии с переданным book_id.
     """
     return books_controller.get_book_by_id(book_id)
+
+
+@app.delete(
+    "/books/{book_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=DeleteBookSuccessfulResponse,
+    response_description=DeleteBookSuccessfulResponse.__doc__,
+    responses={
+        403:
+            {
+                "description": "Ошибка с данным кодом может быть возвращена в случае отсутствия прав администратора "
+                               "либо наличия забронированных (выданных) экземпляров книги, запрос на удаление которой "
+                               "был получен.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "oneOf": [
+                                    DeleteBookForbiddenError.model_json_schema(),
+                                    BookUnitHasActualReservationsError.model_json_schema()
+                            ]
+                        },
+                        "examples": {
+                            "Отправитель запроса не является администратором": {
+                                "value": jsonable_encoder(DeleteBookForbiddenError())
+                            },
+                            "За книгой закреплены забронированные (выданные) экземпляры": {
+                                "value": jsonable_encoder(
+                                    BookUnitHasActualReservationsError(
+                                        description="Book with ID 47d9ba5e-7a97-473f-850a-65c422e32279 has actual "
+                                                    "reservations and cannot be deleted"
+                                    ))
+                            },
+                        }
+                    }
+                },
+            },
+        404: {
+            "model": BookNotFoundError,
+            "description": BookNotFoundError.__doc__
+        }
+    },
+    tags=["Books"]
+)
+async def delete_book_by_id(
+        book_id: UUID = Path(description="ID книги, которую требуется удалить"),
+        access_token: str = Header(description="Авторизационный токен администратора")
+):
+    """
+    Данный эндпоинт удаляет книгу из системы.
+
+    При удалении книги проверяется отсутствие невозвращённых экземпляров: если будет обнаружено, что какие-то
+    экземпляры книги находятся в бронировании, то в удалении книги будет отказано.
+
+    При отсутствии забронированных экземпляров все свободные (доступные для бронирования) экземпляры будут удалены из
+    системы вместе с удаляемой книгой.
+
+    Запрос находится в авторизованной зоне и требует передачи Access-Token'а пользователя, наделённого правами
+    администратора.
+
+    При успешном удалении книги в ответе возвращается статусное сообщение и ID созданной книги.
+    """
+    return books_controller.delete_book(
+        requester_decoded_access_token=authorization_controller.decode_token_without_validation(access_token),
+        book_id=book_id
+    )
 
 
 if __name__ == "__main__":

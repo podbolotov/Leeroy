@@ -40,7 +40,7 @@ class BooksDatabaseOperations:
             return book
         except Exception as e:
             connection.rollback()
-            raise RuntimeError(f'Database request if failed!\n{e}')
+            raise RuntimeError(f'Database request is failed!\n{e}')
 
     @staticmethod
     def get_book_by_isbn(isbn: str):
@@ -56,4 +56,17 @@ class BooksDatabaseOperations:
                 return None
         except Exception as e:
             connection.rollback()
-            raise RuntimeError(f'Database request if failed!\n{e}')
+            raise RuntimeError(f'Database request is failed!\n{e}')
+
+    @staticmethod
+    def delete_book_by_id(book_id: uuid.UUID):
+        connection = create_db_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('DELETE from public.books WHERE id = %s;', (str(book_id),))
+                connection.commit()
+            connection.close()
+        except Exception as e:
+            connection.rollback()
+            connection.close()
+            raise RuntimeError(f'Database request is failed!\n{e}')
