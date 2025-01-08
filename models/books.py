@@ -49,6 +49,12 @@ class CreateBookForbiddenError(DefaultError):
     status: str = "FORBIDDEN"
     description: str = "Only administrators can add new books"
 
+class DeleteBookForbiddenError(DefaultError):
+    """ Данная ошибка возвращается в случае, если запрос на удаление книги осуществляется от имени пользователя,
+    не наделённого правами администратора."""
+    status: str = "FORBIDDEN"
+    description: str = "Only administrators can delete books"
+
 class CreateBookSuccessfulResponse(BaseModel):
     """ В случае успешного добавления новой книги возвращается статусное сообщение и ID добавленной книги. """
     status: Literal["Book successfully added"] = "Book successfully added"
@@ -65,8 +71,23 @@ class CreateBookSuccessfulResponse(BaseModel):
         }
     }
 
+class DeleteBookSuccessfulResponse(BaseModel):
+    """ В случае успешного удаления книги возвращается статусное сообщение. """
+    status: str = "Book successfully deleted"
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "Book successfully deleted"
+                }
+            ]
+        }
+    }
+
 class BookNotFoundError(DefaultError):
-    status: str
+    """ Данная ошибка возвращается в случае, если по переданному ID книгу найти не удалось. """
+    status: str = "NOT_FOUND"
     description: str
 
     model_config = {
