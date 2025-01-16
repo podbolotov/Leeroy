@@ -1,8 +1,8 @@
+import re
 from uuid import UUID
 from typing import List, Literal
 from pydantic import BaseModel, RootModel, Field, field_validator
 from pydantic_core import PydanticCustomError
-from pydantic_extra_types.isbn import ISBN
 from models.default_error import DefaultError
 
 class CreateBookRequestBody(BaseModel):
@@ -15,15 +15,20 @@ class CreateBookRequestBody(BaseModel):
 
     @field_validator('isbn')
     def isbn_value_must_be_valid_isbn(cls, value):
-        try:
-            ISBN.validate_isbn_format(value)
-        except UnboundLocalError:
+
+        if len(value) != 10 and len(value) != 13:
             raise PydanticCustomError(
-                'isbn_invalid_digit_check_isbn10',
-                'Provided digit is invalid for given ISBN'
-            )
-        except Exception as e:
-            raise ValueError(e)
+                    'isbn_length',
+                    'ISBN length should be 10 or 13 symbols'
+                )
+
+        isbn_pattern = r'^(\d{13})$|^(\d{10})$|^(\d{9}[X])$'
+        if not re.match(isbn_pattern, value):
+            raise PydanticCustomError(
+                    'isbn_incorrect_symbols',
+                    'ISBN string can contain only digits and finishing X for ISBN-10'
+                )
+
         return value
 
     model_config = {
