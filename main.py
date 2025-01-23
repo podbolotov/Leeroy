@@ -56,7 +56,7 @@ async def authentification_check_middleware(request: Request, call_next):
 
 
 @app.post(
-    "/authorize",
+    "/v1/authorize",
     status_code=status.HTTP_200_OK,
     response_model=AuthSuccessfulResponse,
     response_description=AuthSuccessfulResponse.__doc__,
@@ -81,7 +81,7 @@ async def authorize(
 
 
 @app.post(
-    "/refresh",
+    "/v1/refresh",
     status_code=status.HTTP_200_OK,
     response_model=AuthSuccessfulResponse,
     response_description=AuthSuccessfulResponse.__doc__,
@@ -105,7 +105,7 @@ async def refresh(
 
 
 @app.delete(
-    "/logout",
+    "/v1/logout",
     status_code=status.HTTP_200_OK,
     response_model=LogoutSuccessfulResponse,
     response_description=LogoutSuccessfulResponse.__doc__,
@@ -126,7 +126,7 @@ async def logout(
 
 
 @app.post(
-    "/users",
+    "/v1/users",
     status_code=status.HTTP_200_OK,
     response_model=CreateUserSuccessfulResponse,
     response_description=CreateUserSuccessfulResponse.__doc__,
@@ -172,7 +172,7 @@ async def create_user(
 
 
 @app.get(
-    path="/users/me",
+    path="/v1/users/me",
     status_code=status.HTTP_200_OK,
     response_model=GetUserDataSuccessfulResponse,
     response_description=GetUserDataSuccessfulResponse.__doc__,
@@ -190,7 +190,7 @@ async def get_user_data_by_access_token(
 
 
 @app.get(
-    path="/users/{user_id}",
+    path="/v1/users/{user_id}",
     status_code=status.HTTP_200_OK,
     response_model=GetUserDataSuccessfulResponse,
     response_description=GetUserDataSuccessfulResponse.__doc__,
@@ -226,7 +226,7 @@ async def get_user_data_by_user_id(
 
 
 @app.patch(
-    "/users/admin-permissions/{user_id}/{permission_action}",
+    "/v1/users/admin-permissions/{user_id}/{permission_action}",
     status_code=status.HTTP_200_OK,
     response_model=ChangeUserPermissionSuccessfulResponse,
     response_description=ChangeUserPermissionSuccessfulResponse.__doc__,
@@ -272,7 +272,7 @@ async def change_user_permissions(
 
 
 @app.delete(
-    "/users/{user_id}",
+    "/v1/users/{user_id}",
     status_code=status.HTTP_200_OK,
     response_model=DeleteUserSuccessfulResponse,
     response_description=DeleteUserSuccessfulResponse.__doc__,
@@ -310,7 +310,7 @@ async def delete_user(
 
 
 @app.post(
-    path="/books",
+    path="/v1/books",
     status_code=status.HTTP_200_OK,
     response_model=CreateBookSuccessfulResponse,
     responses={
@@ -357,7 +357,7 @@ async def create_book(
 
 
 @app.get(
-    path="/books",
+    path="/v1/books",
     status_code=status.HTTP_200_OK,
     response_model=MultipleBooks,
     tags=["Books"]
@@ -372,7 +372,7 @@ async def get_all_books(
 
 
 @app.get(
-    "/books/{book_id}",
+    "/v1/books/{book_id}",
     status_code=status.HTTP_200_OK,
     response_model=SingleBook,
     responses={
@@ -394,7 +394,7 @@ async def get_book_by_id(
 
 
 @app.delete(
-    "/books/{book_id}",
+    "/v1/books/{book_id}",
     status_code=status.HTTP_200_OK,
     response_model=DeleteBookSuccessfulResponse,
     response_description=DeleteBookSuccessfulResponse.__doc__,
